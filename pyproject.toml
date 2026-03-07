@@ -1,0 +1,66 @@
+[project]
+name = "rag-platform"
+version = "0.1.0"
+description = "RAG Platform with knowledge graph and retrieval"
+requires-python = ">=3.11"
+dependencies = [
+    # PDF/Document processing
+    "docling",
+    "pymupdf",
+    "surya-ocr",
+    "pikepdf",
+    
+    # Database
+    "psycopg[binary]",
+    
+    # Search & Storage
+    "opensearch-py",
+    "minio",
+    
+    # Web server
+    "fastapi",
+    "uvicorn",
+    
+    # LLM & AI
+    "ollama",
+    "langfuse",
+    "instructor",
+    "flashrank",
+    
+    # NLP & Security
+    "presidio-analyzer",
+    
+    # Core
+    "pydantic>=2.0",
+    "httpx",
+    "redis",
+    
+    # Chat UI
+    "chainlit",
+    
+    # Evaluation
+    "ragas",
+    
+    # Testing
+    "pytest",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
