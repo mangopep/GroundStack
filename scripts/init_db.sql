@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS structured_kb (
     chunk_hash TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    created_by TEXT
+    created_by TEXT,
+    tags JSONB DEFAULT '[]'
 );
 
 -- Create human_overrides table

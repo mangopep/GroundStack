@@ -139,6 +139,57 @@ def create_scanned_doc(output_path):
     print(f"Created: {output_path.name}")
 
 
+def create_rca_and_cli_doc(output_path):
+    """Create a document with RCA and CLI reference tables (triggers structured KB extraction)."""
+    doc = SimpleDocTemplate(str(output_path), pagesize=letter)
+    styles = getSampleStyleSheet()
+    story = []
+
+    story.append(Paragraph("Runbook: Root Cause Analysis & CLI Reference", styles["Title"]))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # ── RCA table ── keywords: symptom, root cause, fix, severity
+    story.append(Paragraph("Root Cause Analysis", styles["Heading1"]))
+    story.append(Spacer(1, 0.1 * inch))
+    rca_data = [
+        ["Symptom", "Root Cause", "Fix", "Severity"],
+        ["Search returns no results", "OpenSearch index empty", "Run reindex_all.py", "High"],
+        ["Slow ingest", "Docling CPU-bound", "Increase worker threads", "Medium"],
+        ["LangFuse traces missing", "SDK/server version mismatch", "Pin langfuse>=2,<3", "Low"],
+    ]
+    rca_table = Table(rca_data, colWidths=[1.5 * inch, 1.7 * inch, 1.7 * inch, 0.9 * inch])
+    rca_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkred),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(rca_table)
+    story.append(Spacer(1, 0.3 * inch))
+
+    # ── CLI table ── keywords: command, syntax, parameter, example
+    story.append(Paragraph("CLI Command Reference", styles["Heading1"]))
+    story.append(Spacer(1, 0.1 * inch))
+    cli_data = [
+        ["Command", "Syntax", "Parameter", "Example"],
+        ["ingest", "python phase1.py ingest <file>", "--path PATH", "python phase1.py ingest data/"],
+        ["search", "python test_search.py <query>", "--top-k N", "python test_search.py 'TCP'"],
+        ["reindex", "python reindex_all.py", "--force", "python reindex_all.py --force"],
+    ]
+    cli_table = Table(cli_data, colWidths=[0.8 * inch, 2.0 * inch, 1.2 * inch, 1.8 * inch])
+    cli_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(cli_table)
+    doc.build(story)
+    print(f"Created: {output_path.name}")
+
+
 def main():
     print("=" * 50)
     print("RAG Platform - Seed Test Data")
@@ -152,6 +203,7 @@ def main():
         ("03_cli_commands.pdf", create_cli_output_doc),
         ("04_multicolumn.pdf", create_multicolumn_doc),
         ("05_scanned_reference.pdf", create_scanned_doc),
+        ("06_rca_and_cli.pdf", create_rca_and_cli_doc),
     ]
 
     print("\n=== Creating sample PDFs ===")

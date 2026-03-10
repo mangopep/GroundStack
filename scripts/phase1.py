@@ -14,16 +14,15 @@ This script proves that the Week 1 foundation works end-to-end:
 This demonstrates Level 2 completion: "It works once"
 """
 
-import sys
 import hashlib
-import json
-from pathlib import Path
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import psycopg
-from opensearchpy import OpenSearch
-from minio import Minio
 from docling.document_converter import DocumentConverter
+from minio import Minio
+from opensearchpy import OpenSearch
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -63,7 +62,7 @@ def main():
 
     # Load settings
     settings = get_settings()
-    print(f"\n[1/7] ✓ Settings loaded")
+    print("\n[1/7] ✓ Settings loaded")
 
     # Find all PDFs
     corpus_dir = Path(__file__).parent.parent / "data" / "corpus"
@@ -79,12 +78,12 @@ def main():
         print(f"      - {pdf.name}")
 
     # Initialize Docling
-    print(f"\n[3/7] ⏳ Initializing Docling converter...")
+    print("\n[3/7] ⏳ Initializing Docling converter...")
     converter = DocumentConverter()
-    print(f"[3/7] ✓ Docling ready")
+    print("[3/7] ✓ Docling ready")
 
     # Initialize OpenSearch
-    print(f"\n[4/7] ⏳ Connecting to OpenSearch...")
+    print("\n[4/7] ⏳ Connecting to OpenSearch...")
     os_client = OpenSearch(
         hosts=[{"host": settings.opensearch_host, "port": settings.opensearch_port}],
         http_compress=True,
@@ -93,10 +92,10 @@ def main():
     )
     # Test connection
     os_client.cluster.health()
-    print(f"[4/7] ✓ OpenSearch connected")
+    print("[4/7] ✓ OpenSearch connected")
 
     # Initialize PostgreSQL
-    print(f"\n[5/7] ⏳ Connecting to PostgreSQL...")
+    print("\n[5/7] ⏳ Connecting to PostgreSQL...")
     pg_conn = psycopg.connect(
         host=settings.postgres_host,
         port=settings.postgres_port,
@@ -104,10 +103,10 @@ def main():
         password=settings.postgres_password,
         dbname=settings.postgres_db
     )
-    print(f"[5/7] ✓ PostgreSQL connected")
+    print("[5/7] ✓ PostgreSQL connected")
 
     # Initialize MinIO
-    print(f"\n[6/7] ⏳ Connecting to MinIO...")
+    print("\n[6/7] ⏳ Connecting to MinIO...")
     minio_client = Minio(
         settings.minio_endpoint,
         access_key=settings.minio_access_key,
@@ -116,12 +115,12 @@ def main():
     )
     # Verify bucket exists
     if not minio_client.bucket_exists("rag-documents"):
-        print(f"      Creating bucket 'rag-documents'...")
+        print("      Creating bucket 'rag-documents'...")
         minio_client.make_bucket("rag-documents")
-    print(f"[6/7] ✓ MinIO connected")
+    print("[6/7] ✓ MinIO connected")
 
     # Process each PDF
-    print(f"\n[7/7] ⏳ Processing PDFs...")
+    print("\n[7/7] ⏳ Processing PDFs...")
     print("=" * 80)
 
     total_chunks = 0
@@ -132,7 +131,7 @@ def main():
 
         try:
             # Parse with Docling
-            print(f"   ⏳ Parsing with Docling...")
+            print("   ⏳ Parsing with Docling...")
             result = converter.convert(str(pdf_path))
             text = result.document.export_to_markdown()
             page_count = len(result.document.pages) if hasattr(result.document, 'pages') else 1
@@ -184,7 +183,7 @@ def main():
                     datetime.utcnow()
                 ))
                 pg_conn.commit()
-            print(f"   ✓ Stored metadata in PostgreSQL")
+            print("   ✓ Stored metadata in PostgreSQL")
 
             # Upload to MinIO
             minio_path = f"raw/{pdf_path.name}"
@@ -227,7 +226,7 @@ def main():
     # Verify OpenSearch
     count_result = os_client.count(index=settings.opensearch_index)
     os_count = count_result['count']
-    print(f"\n🔍 OpenSearch verification:")
+    print("\n🔍 OpenSearch verification:")
     print(f"   ✓ Index '{settings.opensearch_index}' contains {os_count} documents")
 
     # Verify PostgreSQL
@@ -241,12 +240,12 @@ def main():
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM document_metadata")
             pg_count = cur.fetchone()[0]
-            print(f"\n🗄️  PostgreSQL verification:")
+            print("\n🗄️  PostgreSQL verification:")
             print(f"   ✓ Table 'document_metadata' contains {pg_count} documents")
 
     # Verify MinIO
     objects = list(minio_client.list_objects("rag-documents", prefix="raw/", recursive=True))
-    print(f"\n📦 MinIO verification:")
+    print("\n📦 MinIO verification:")
     print(f"   ✓ Bucket 'rag-documents' contains {len(objects)} files")
 
     print("\n" + "=" * 80)

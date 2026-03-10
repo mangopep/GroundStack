@@ -23,7 +23,7 @@ dependencies = [
     
     # LLM & AI
     "ollama",
-    "langfuse",
+    "langfuse>=2,<3",
     "instructor",
     "flashrank",
     
