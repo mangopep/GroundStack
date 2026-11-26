@@ -231,15 +231,17 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
           IMAGE_NAME: ${{ needs.verify.outputs.image }}
         run: |
+          mkdir -p /tmp/groundstack-api-oci
+          tar -xf /tmp/groundstack-api.oci.tar -C /tmp/groundstack-api-oci
           for architecture in amd64 arm64; do
             platform="linux/$architecture"
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
-              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              image --input /work/groundstack-api-oci --platform "$platform" \
               --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
-              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              image --input /work/groundstack-api-oci --platform "$platform" \
               --format cyclonedx --output "/work/groundstack-api-linux-$architecture.cdx.json" --no-progress
           done
           python - <<'PY'

@@ -23,8 +23,8 @@ jobs:
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: Groundstack_CI_Only_93!
       MINIO_ROOT_USER: groundstack_ci_only
       MINIO_ROOT_PASSWORD: groundstack_ci_only_password
-      LANGFUSE_NEXTAUTH_SECRET: groundstack_ci_only_secret
-      LANGFUSE_SALT: groundstack_ci_only_salt
+      LANGFUSE_NEXTAUTH_SECRET: groundstack_ci_only_nextauth_secret_2026
+      LANGFUSE_SALT: groundstack_ci_only_langfuse_salt_2026
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,6 +48,11 @@ jobs:
           wait_for Redis docker compose exec --no-TTY redis redis-cli ping
           wait_for MinIO curl --fail --silent http://127.0.0.1:9000/minio/health/live
           wait_for Langfuse curl --fail --silent --output /dev/null http://127.0.0.1:3000/
+      - name: Show development service logs when startup failed
+        if: failure()
+        run: |
+          docker compose ps --all
+          docker compose logs --no-color --tail=150 postgres langfuse
       - name: Stop this runner's development stack
         if: always()
         run: docker compose down --remove-orphans
@@ -128,15 +133,17 @@ jobs:
           --no-progress groundstack-api:ci
       - name: Scan both OCI platforms and generate platform SBOMs
         run: |
+          mkdir -p /tmp/groundstack-api-oci
+          tar -xf /tmp/groundstack-api.oci.tar -C /tmp/groundstack-api-oci
           for architecture in amd64 arm64; do
             platform="linux/$architecture"
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
-              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              image --input /work/groundstack-api-oci --platform "$platform" \
               --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
-              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              image --input /work/groundstack-api-oci --platform "$platform" \
               --format cyclonedx --output "/work/groundstack-api-linux-$architecture.cdx.json" --no-progress
           done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
