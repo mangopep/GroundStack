@@ -100,10 +100,10 @@ services:
     image: langfuse/langfuse@sha256:85c278dcab96c15db94191a5c1664f85aba2d7fb6771a00e99681c902c4b7015
     container_name: rag-langfuse
     depends_on:
-      postgres:
-        condition: service_healthy
+      langfuse-db-init:
+        condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql://rag:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/rag_platform
+      DATABASE_URL: postgresql://rag:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/langfuse
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?Set LANGFUSE_NEXTAUTH_SECRET in .env}
       NEXTAUTH_URL: http://localhost:3000
       SALT: ${LANGFUSE_SALT:?Set LANGFUSE_SALT in .env}
@@ -112,6 +112,23 @@ services:
     networks:
       - rag-network
     restart: unless-stopped
+
+  langfuse-db-init:
+    image: apache/age@sha256:bd653255f4b9449c3f52bac3849524069cf83a6d867a25b1fc6d8535171498b7
+    entrypoint: ["/bin/sh", "-ec"]
+    command: |
+      if ! psql -U rag -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'langfuse'" | grep -q 1; then
+        createdb -U rag langfuse
+      fi
+    environment:
+      PGHOST: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - rag-network
+    restart: "no"
 
 networks:
   rag-network:

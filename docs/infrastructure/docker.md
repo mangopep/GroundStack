@@ -2,6 +2,8 @@
 
 `docker-compose.yml` defines PostgreSQL/AGE, OpenSearch, Redis, MinIO, and Langfuse with named volumes. The Python app and Ollama run on the host unless the separately built API image is run directly. Third-party service images are pinned by manifest digest. Published ports bind to loopback only. OpenSearch security is disabled, so this is a local development topology, not a network boundary. The OpenSearch image also requires `OPENSEARCH_INITIAL_ADMIN_PASSWORD` for its demo bootstrap even while security is disabled; set a unique strong value in `.env`.
 
+Compose creates a separate `langfuse` database, including when an existing PostgreSQL volume is reused, so Langfuse migrations stay isolated from the `rag_platform` application tables and AGE graph.
+
 ## Inspect before start
 
 From the repository root, ensure `.env` exists and contains the variables required by Compose. Preserve any existing secrets file.
