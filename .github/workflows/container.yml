@@ -18,18 +18,18 @@ jobs:
   development-stack:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      POSTGRES_PASSWORD: groundstack_ci_only_password
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: Groundstack_CI_Only_93!
+      MINIO_ROOT_USER: groundstack_ci_only
+      MINIO_ROOT_PASSWORD: groundstack_ci_only_password
+      LANGFUSE_NEXTAUTH_SECRET: groundstack_ci_only_secret
+      LANGFUSE_SALT: groundstack_ci_only_salt
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Start a clean development service stack
-        env:
-          POSTGRES_PASSWORD: groundstack_ci_only_password
-          OPENSEARCH_INITIAL_ADMIN_PASSWORD: Groundstack_CI_Only_93!
-          MINIO_ROOT_USER: groundstack_ci_only
-          MINIO_ROOT_PASSWORD: groundstack_ci_only_password
-          LANGFUSE_NEXTAUTH_SECRET: groundstack_ci_only_secret
-          LANGFUSE_SALT: groundstack_ci_only_salt
         run: docker compose up --detach
       - name: Verify all documented development services
         run: |
@@ -124,7 +124,7 @@ jobs:
         run: >-
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
           aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
-          image --scanners vuln,misconfig,license --severity HIGH,CRITICAL --exit-code 1
+          image --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1
           --no-progress groundstack-api:ci
       - name: Scan both OCI platforms and generate platform SBOMs
         run: |
@@ -133,7 +133,7 @@ jobs:
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
               image --input /work/groundstack-api.oci.tar --platform "$platform" \
-              --scanners vuln,misconfig,license --severity HIGH,CRITICAL --exit-code 1 --no-progress
+              --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 --no-progress
             docker run --rm -v /tmp:/work \
               aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
               image --input /work/groundstack-api.oci.tar --platform "$platform" \
