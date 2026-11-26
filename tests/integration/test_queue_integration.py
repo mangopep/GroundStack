@@ -15,7 +15,6 @@ import pytest
 
 from src.workers.queue import TaskQueue, TaskStatus, TaskType
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -64,7 +63,9 @@ class TestConcurrentWorkers:
         assert q.get_status()["completed"] == n
         # If workers ran sequentially this would be ~0.8 s; allow generous
         # headroom for a slow CI machine but reject purely sequential execution.
-        assert elapsed < 0.7, f"Workers do not appear to be running concurrently (elapsed={elapsed:.2f}s)"
+        assert elapsed < 0.7, (
+            f"Workers do not appear to be running concurrently (elapsed={elapsed:.2f}s)"
+        )
 
     @pytest.mark.anyio
     async def test_active_worker_count_reported(self):
@@ -102,11 +103,13 @@ class TestIngestPdfHandler:
         async def fake_to_thread(fn, *args, **kwargs):
             called_with["fn"] = fn
             called_with["args"] = args
+
             # Return a minimal stub so the logger call after it doesn't crash
             class _Result:
                 doc_id = "doc-1"
                 page_count = 2
                 chunk_count = 5
+
             return _Result()
 
         task_done = asyncio.Event()
@@ -122,7 +125,8 @@ class TestIngestPdfHandler:
         with patch("src.workers.queue.asyncio.to_thread", side_effect=fake_to_thread):
             # Patch the import inside the handler as well
             with patch.dict("sys.modules", {}):
-                import importlib, sys
+                import sys
+
                 # Make the import inside handler succeed by injecting a stub module
                 class _FakeModule:
                     @staticmethod
@@ -131,7 +135,7 @@ class TestIngestPdfHandler:
 
                 sys.modules.setdefault("src.ingestion.index_builder", _FakeModule)
 
-                task_id = await q.enqueue(TaskType.INGEST_PDF, {"pdf_path": "/tmp/test.pdf"})
+                await q.enqueue(TaskType.INGEST_PDF, {"pdf_path": "/tmp/test.pdf"})
                 process_task = asyncio.create_task(q.process())
                 await asyncio.wait_for(task_done.wait(), timeout=3.0)
                 await q.stop()
@@ -285,8 +289,12 @@ class TestEndToEndLifecycle:
 
         task_ids = {
             TaskType.REINDEX_DOCUMENT: await q.enqueue(TaskType.REINDEX_DOCUMENT, {"doc_id": "d1"}),
-            TaskType.SUMMARIZE_SESSION: await q.enqueue(TaskType.SUMMARIZE_SESSION, {"session_id": "s1"}),
-            TaskType.INVALIDATE_CACHE: await q.enqueue(TaskType.INVALIDATE_CACHE, {"cache_key": "k1"}),
+            TaskType.SUMMARIZE_SESSION: await q.enqueue(
+                TaskType.SUMMARIZE_SESSION, {"session_id": "s1"}
+            ),
+            TaskType.INVALIDATE_CACHE: await q.enqueue(
+                TaskType.INVALIDATE_CACHE, {"cache_key": "k1"}
+            ),
         }
 
         process_task = asyncio.create_task(q.process())
@@ -302,5 +310,6 @@ class TestEndToEndLifecycle:
         await asyncio.gather(process_task, return_exceptions=True)
 
         for task_type, task_id in task_ids.items():
-            assert q.get_task(task_id)["status"] == TaskStatus.COMPLETED.value, \
+            assert q.get_task(task_id)["status"] == TaskStatus.COMPLETED.value, (
                 f"{task_type} task did not complete"
+            )

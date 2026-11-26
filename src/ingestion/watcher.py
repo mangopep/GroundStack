@@ -14,7 +14,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
 from src.ingestion.index_builder import ingest_pdf
@@ -73,6 +73,7 @@ class IngestionJob:
 
     Ordering is by priority_num first, then by counter (FIFO for same priority).
     """
+
     priority_num: int
     counter: int
     file_path: Path = field(compare=False)
@@ -129,8 +130,7 @@ class IngestionWatcher:
 
         # Thread pool for ingestion workers
         self._executor = concurrent.futures.ThreadPoolExecutor(
-            max_workers=self.max_workers,
-            thread_name_prefix="ingestion_worker"
+            max_workers=self.max_workers, thread_name_prefix="ingestion_worker"
         )
         self._active_futures: set[concurrent.futures.Future] = set()
         self._futures_lock = threading.Lock()
@@ -184,10 +184,7 @@ class IngestionWatcher:
 
         self._running.set()
 
-        logger.info(
-            "Watcher started: watching %s (non-recursive)",
-            self.watch_path
-        )
+        logger.info("Watcher started: watching %s (non-recursive)", self.watch_path)
 
     def stop(self) -> None:
         """Stop watching and shut down cleanly."""
@@ -212,10 +209,7 @@ class IngestionWatcher:
         # Wait for active futures
         with self._futures_lock:
             if self._active_futures:
-                logger.info(
-                    "Waiting for %d active jobs to complete...",
-                    len(self._active_futures)
-                )
+                logger.info("Waiting for %d active jobs to complete...", len(self._active_futures))
                 concurrent.futures.wait(
                     self._active_futures,
                     timeout=30,
@@ -387,9 +381,7 @@ class IngestionWatcher:
             self._active_futures.add(future)
 
         # Add callback to handle completion
-        future.add_done_callback(
-            lambda f: self._on_job_done(f, file_path, priority_label)
-        )
+        future.add_done_callback(lambda f: self._on_job_done(f, file_path, priority_label))
 
     def _run_ingestion(self, file_path: Path, priority_label: str) -> None:
         """
@@ -556,4 +548,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

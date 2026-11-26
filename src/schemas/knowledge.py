@@ -179,10 +179,7 @@ class ConfigurationParameter(StrictBaseModel):
 
 
 KnowledgeData = (
-    RootCauseAnalysis
-    | CLICommandReference
-    | EscalationResolution
-    | ConfigurationParameter
+    RootCauseAnalysis | CLICommandReference | EscalationResolution | ConfigurationParameter
 )
 
 
@@ -214,4 +211,3 @@ class KnowledgeObject(StrictBaseModel):
         if v < 1:
             raise ValueError("version must be >= 1")
         return v
-

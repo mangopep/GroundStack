@@ -19,55 +19,29 @@ def create_index(client: OpenSearch) -> bool:
             "number_of_shards": 2,
             "number_of_replicas": 1,
             "analysis": {
-                "analyzer": {
-                    "english_content": {
-                        "type": "standard",
-                        "stopwords": "_english_"
-                    }
-                }
-            }
+                "analyzer": {"english_content": {"type": "standard", "stopwords": "_english_"}}
+            },
         },
         "mappings": {
             "properties": {
-                "title": {
-                    "type": "text"
-                },
-                "content": {
-                    "type": "text",
-                    "analyzer": "english"
-                },
-                "section_path": {
-                    "type": "keyword"
-                },
-                "doc_id": {
-                    "type": "keyword"
-                },
-                "page_number": {
-                    "type": "integer"
-                },
-                "chunk_type": {
-                    "type": "keyword"
-                },
-                "parent_id": {
-                    "type": "keyword"
-                },
-                "version": {
-                    "type": "integer"
-                },
-                "chunk_hash": {
-                    "type": "keyword"
-                },
-                "ingested_at": {
-                    "type": "date"
-                }
+                "title": {"type": "text"},
+                "content": {"type": "text", "analyzer": "english"},
+                "section_path": {"type": "keyword"},
+                "doc_id": {"type": "keyword"},
+                "page_number": {"type": "integer"},
+                "chunk_type": {"type": "keyword"},
+                "parent_id": {"type": "keyword"},
+                "version": {"type": "integer"},
+                "chunk_hash": {"type": "keyword"},
+                "ingested_at": {"type": "date"},
             }
-        }
+        },
     }
 
     try:
         if client.indices.exists(index=INDEX_NAME):
-            print(f"Index '{INDEX_NAME}' already exists. Deleting and recreating...")
-            client.indices.delete(index=INDEX_NAME)
+            print(f"Index '{INDEX_NAME}' already exists. Leaving existing data intact.")
+            return True
 
         client.indices.create(index=INDEX_NAME, body=index_mapping)
         print(f"Successfully created index '{INDEX_NAME}'")
@@ -112,4 +86,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -17,20 +17,23 @@ Usage:
     python scripts/audit_chunks.py
     python scripts/audit_chunks.py --doc-id <doc_id>   # audit single doc
 """
-import sys
+
 import argparse
 import logging
-from pathlib import Path
+import sys
 from collections import Counter
+from pathlib import Path
+
+from opensearchpy import OpenSearch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
 
-from opensearchpy import OpenSearch
-
 parser = argparse.ArgumentParser(description="Chunk quality audit")
 parser.add_argument("--doc-id", help="Audit a single document by doc_id")
-parser.add_argument("--small-limit", type=int, default=5, help="Number of smallest chunks to show (default: 5)")
+parser.add_argument(
+    "--small-limit", type=int, default=5, help="Number of smallest chunks to show (default: 5)"
+)
 args = parser.parse_args()
 
 client = OpenSearch([{"host": "localhost", "port": 9200}])
@@ -75,7 +78,17 @@ print(f"  Chunks > 1500 (must be 0):  {over_1500}  {'✓ PASS' if over_1500 == 0
 print(f"  Chunks < 100 (best-effort): {under_100} ({100 * under_100 / len(word_sizes):.1f}%)")
 
 print("\n  Distribution:")
-bands = [(0, 10), (10, 30), (30, 60), (60, 100), (100, 200), (200, 500), (500, 1000), (1000, 1500), (1500, 9999)]
+bands = [
+    (0, 10),
+    (10, 30),
+    (30, 60),
+    (60, 100),
+    (100, 200),
+    (200, 500),
+    (500, 1000),
+    (1000, 1500),
+    (1500, 9999),
+]
 for lo, hi in bands:
     count = sum(1 for s in word_sizes if lo <= s < hi)
     bar = "█" * (count // max(1, len(word_sizes) // 40))
@@ -90,7 +103,7 @@ for t, n in sorted(type_counts.items()):
 # ── section_path coverage ─────────────────────────────────
 has_path = sum(1 for c in chunks if c.get("section_path"))
 pct = 100 * has_path / len(chunks) if chunks else 0
-print(f"\n[section_path coverage]")
+print("\n[section_path coverage]")
 print(f"  {has_path}/{len(chunks)} chunks have section_path ({pct:.1f}%)")
 
 # ── Per-document breakdown ────────────────────────────────────────────────
@@ -102,7 +115,7 @@ if not args.doc_id:
     for doc_id, sizes in sorted(by_doc.items(), key=lambda x: -len(x[1])):
         print(
             f"  {doc_id[:20]}  chunks={len(sizes):4d}  "
-            f"min={min(sizes):4d}  avg={sum(sizes)//len(sizes):4d}  max={max(sizes):4d}"
+            f"min={min(sizes):4d}  avg={sum(sizes) // len(sizes):4d}  max={max(sizes):4d}"
         )
 
 # ── Smallest chunks ───────────────────────────────────────
@@ -118,11 +131,15 @@ for c in section_chunks[: args.small_limit]:
     print()
 
 # ── Largest chunks ────────────────────────────────────────
-print(f"[Largest 3 chunks]")
+print("[Largest 3 chunks]")
 for c in sorted(content_chunks, key=lambda c: len(c["content"].split()), reverse=True)[:3]:
     toks = len(c["content"].split())
-    print(f"  section_path={c.get('section_path')!r}  chunk_type={c.get('chunk_type')}  tokens={toks}")
+    print(
+        f"  section_path={c.get('section_path')!r}  chunk_type={c.get('chunk_type')}  tokens={toks}"
+    )
 
 print("\n" + "=" * 60)
 print(f"Max-size constraint (≤1500): {'PASS' if over_1500 == 0 else 'FAIL'}")
-print(f"Min-size best-effort (≥100): {under_100} chunks under threshold ({100 * under_100 / len(word_sizes):.1f}%)")
+print(
+    f"Min-size best-effort (≥100): {under_100} chunks under threshold ({100 * under_100 / len(word_sizes):.1f}%)"
+)

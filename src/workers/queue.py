@@ -9,9 +9,10 @@ import asyncio
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 
-class TaskType(str, Enum):
+class TaskType(str, Enum):  # noqa: UP042 — preserve existing Enum string representation for callers.
     """Supported task types."""
 
     INGEST_PDF = "ingest_pdf"
@@ -30,7 +31,7 @@ class TaskType(str, Enum):
     INVALIDATE_CACHE = "invalidate_cache"
 
 
-class TaskStatus(str, Enum):
+class TaskStatus(str, Enum):  # noqa: UP042 — preserve existing Enum string representation for callers.
     """Task lifecycle statuses."""
 
     QUEUED = "queued"
@@ -99,9 +100,7 @@ class TaskQueue:
         self.max_workers = max_workers
 
         # Priority queue: (priority, sequence, task)
-        self._queue: asyncio.PriorityQueue[tuple[int, int, QueuedTask]] = (
-            asyncio.PriorityQueue()
-        )
+        self._queue: asyncio.PriorityQueue[tuple[int, int, QueuedTask]] = asyncio.PriorityQueue()
 
         # Sequence counter for FIFO ordering within same priority
         self._sequence_counter = 0
@@ -308,7 +307,7 @@ class TaskQueue:
                     asyncio.gather(*self._workers, return_exceptions=True),
                     timeout=timeout,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Workers did not finish within %.1fs; force-cancelling",
                     timeout,
@@ -383,7 +382,7 @@ class TaskQueue:
                         self._queue.get(),
                         timeout=1.0,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # No task available, check if we should stop
                     if self._stop_event.is_set():
                         break
@@ -513,24 +512,16 @@ class TaskQueue:
         # Import and call the actual ingestion function.
         # ingest_pdf is synchronous and potentially CPU/IO-heavy, so run it
         # in a thread pool to avoid blocking the async event loop.
-        try:
-            from src.ingestion.index_builder import ingest_pdf
+        from src.ingestion.index_builder import ingest_pdf
 
-            result = await asyncio.to_thread(ingest_pdf, pdf_path)
-            logger.info(
-                "Ingestion complete: task_id=%s, doc_id=%s, pages=%d, chunks=%d",
-                task.task_id,
-                result.doc_id,
-                result.page_count,
-                result.chunk_count,
-            )
-        except ImportError:
-            # If import fails, simulate successful completion
-            logger.warning(
-                "ingest_pdf not available, simulating success for task_id=%s",
-                task.task_id,
-            )
-            await asyncio.sleep(0.1)  # Simulate some work
+        result = await asyncio.to_thread(ingest_pdf, pdf_path)
+        logger.info(
+            "Ingestion complete: task_id=%s, doc_id=%s, pages=%d, chunks=%d",
+            task.task_id,
+            result.doc_id,
+            result.page_count,
+            result.chunk_count,
+        )
 
     async def _handle_reindex_document(self, task: QueuedTask) -> None:
         """
@@ -603,4 +594,3 @@ def get_queue(max_workers: int = 4) -> TaskQueue:
     if _default_queue is None:
         _default_queue = TaskQueue(max_workers=max_workers)
     return _default_queue
-

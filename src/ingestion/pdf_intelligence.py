@@ -174,7 +174,9 @@ def process_pdf(pdf_path: str | Path) -> list[PageResult]:
                 dl_result = converter.convert(str(pdf_path))
                 dl_doc = dl_result.document
             except Exception:
-                logger.exception("Docling full conversion failed. Falling back to PyMuPDF for all native pages.")
+                logger.exception(
+                    "Docling full conversion failed. Falling back to PyMuPDF for all native pages."
+                )
                 docling_failed = True
 
         # Phase 3: Construct results
@@ -201,7 +203,9 @@ def process_pdf(pdf_path: str | Path) -> list[PageResult]:
                             "Falling back to PyMuPDF raw text."
                         )
                     else:
-                        logger.debug(f"Page {actual_page_num}: using PyMuPDF fallback (Docling unavailable)")
+                        logger.debug(
+                            f"Page {actual_page_num}: using PyMuPDF fallback (Docling unavailable)"
+                        )
                     pymupdf_page = doc[actual_page_num - 1]
                     text = pymupdf_page.get_text().strip()
                     status = "partial_fallback" if text else "failed"
@@ -221,15 +225,14 @@ def process_pdf(pdf_path: str | Path) -> list[PageResult]:
                     page_num=actual_page_num,
                     text="",
                     page_type=page_type,
-                    extraction_status="skipped", # Mark skipped since we can't extract yet
+                    extraction_status="skipped",  # Mark skipped since we can't extract yet
                     tables=[],
                     images=[],
                 )
 
             results.append(result)
             logger.info(
-                f"Page {actual_page_num}/{num_pages}: {page_type} "
-                f"(text length: {len(result.text)})"
+                f"Page {actual_page_num}/{num_pages}: {page_type} (text length: {len(result.text)})"
             )
     finally:
         doc.close()
@@ -254,4 +257,3 @@ def process_pdf(pdf_path: str | Path) -> list[PageResult]:
     )
 
     return results
-

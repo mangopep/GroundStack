@@ -22,6 +22,7 @@ from src.config import get_settings
 # (e.g., Python 3.14 compatibility issues with Pydantic v1)
 try:
     from langfuse import Langfuse
+
     LANGFUSE_AVAILABLE = True
 except (ImportError, Exception):
     LANGFUSE_AVAILABLE = False
@@ -35,6 +36,7 @@ except (ImportError, Exception):
 
 def with_retry(func):
     """Decorator for retrying with exponential backoff (3 attempts)."""
+
     async def wrapper(*args, **kwargs):
         max_attempts = 3
         base_delay = 1.0
@@ -46,7 +48,7 @@ def with_retry(func):
             except Exception as e:
                 last_exception = e
                 if attempt < max_attempts - 1:
-                    delay = base_delay * (2 ** attempt)
+                    delay = base_delay * (2**attempt)
                     await asyncio.sleep(delay)
         raise last_exception
 
@@ -77,14 +79,16 @@ class LLMClient:
         self._ollama_client = ollama
 
         # Initialize LangFuse only if available and keys are provided
-        if (LANGFUSE_AVAILABLE and
-            self._settings.langfuse.public_key and
-            self._settings.langfuse.secret_key):
+        if (
+            LANGFUSE_AVAILABLE
+            and self._settings.langfuse.public_key
+            and self._settings.langfuse.secret_key
+        ):
             try:
                 self._langfuse = Langfuse(
                     public_key=self._settings.langfuse.public_key,
                     secret_key=self._settings.langfuse.secret_key,
-                    host=self._settings.langfuse.host
+                    host=self._settings.langfuse.host,
                 )
             except Exception:
                 # Silently fail if LangFuse initialization fails
@@ -193,9 +197,7 @@ class LLMClient:
         )
 
         response = client.chat.completions.create(
-            messages=[
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "user", "content": prompt}],
             response_model=response_model,
             temperature=0.1,
         )
@@ -328,4 +330,3 @@ def get_llm_client() -> LLMClient:
     if _llm_client is None:
         _llm_client = LLMClient()
     return _llm_client
-

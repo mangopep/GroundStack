@@ -17,6 +17,7 @@ from src.config import get_settings
 # Try to import LangFuse, but gracefully handle if unavailable
 try:
     from langfuse import Langfuse
+
     LANGFUSE_AVAILABLE = True
 except (ImportError, Exception):
     LANGFUSE_AVAILABLE = False
@@ -45,9 +46,7 @@ class CostTracker:
         """Initialize CostTracker with Redis and LangFuse connections."""
         settings = get_settings()
         self._redis = redis.Redis(
-            host=settings.redis.host,
-            port=settings.redis.port,
-            decode_responses=True
+            host=settings.redis.host, port=settings.redis.port, decode_responses=True
         )
 
         # Initialize LangFuse only if available
@@ -300,4 +299,3 @@ def get_cost_tracker() -> CostTracker:
     if _cost_tracker is None:
         _cost_tracker = CostTracker()
     return _cost_tracker
-

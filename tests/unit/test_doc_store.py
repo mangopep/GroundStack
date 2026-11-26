@@ -7,19 +7,23 @@ Run with:
 """
 
 import io
-from pathlib import Path
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from minio.error import S3Error
 
-from src.stores.doc_store import DocStore, DEFAULT_DOCUMENTS_BUCKET, DEFAULT_IMAGES_BUCKET, DEFAULT_URL_EXPIRY_SECONDS
-
+from src.stores.doc_store import (
+    DEFAULT_DOCUMENTS_BUCKET,
+    DEFAULT_IMAGES_BUCKET,
+    DEFAULT_URL_EXPIRY_SECONDS,
+    DocStore,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_store() -> DocStore:
     """Return a DocStore whose Minio client is fully mocked (no server needed)."""
@@ -39,6 +43,7 @@ def _make_store() -> DocStore:
 # ---------------------------------------------------------------------------
 # 1. Initialisation
 # ---------------------------------------------------------------------------
+
 
 class TestInit:
     @patch("src.stores.doc_store.Minio")
@@ -110,6 +115,7 @@ class TestInit:
 # ---------------------------------------------------------------------------
 # 2. upload_pdf
 # ---------------------------------------------------------------------------
+
 
 class TestUploadPdf:
     def test_upload_pdf_calls_fput_object(self, tmp_path):
@@ -184,6 +190,7 @@ class TestUploadPdf:
 # 3. upload_image
 # ---------------------------------------------------------------------------
 
+
 class TestUploadImage:
     def test_upload_image_calls_put_object(self):
         """put_object is called with correct bucket, key, and content-type."""
@@ -235,6 +242,7 @@ class TestUploadImage:
 # 4. get_pdf_url
 # ---------------------------------------------------------------------------
 
+
 class TestGetPdfUrl:
     def test_get_pdf_url_calls_presigned(self):
         """presigned_get_object is called with correct bucket, key, and expiry."""
@@ -282,6 +290,7 @@ class TestGetPdfUrl:
 # 5. list_docs
 # ---------------------------------------------------------------------------
 
+
 class TestListDocs:
     def test_list_docs_returns_object_names(self):
         """list_objects results are unpacked into a plain list of strings."""
@@ -294,9 +303,7 @@ class TestListDocs:
 
         docs = store.list_docs()
 
-        store._client.list_objects.assert_called_once_with(
-            DEFAULT_DOCUMENTS_BUCKET, recursive=True
-        )
+        store._client.list_objects.assert_called_once_with(DEFAULT_DOCUMENTS_BUCKET, recursive=True)
         assert docs == ["doc-alpha", "doc-beta"]
 
     def test_list_docs_empty_bucket(self):
@@ -320,6 +327,7 @@ class TestListDocs:
 # ---------------------------------------------------------------------------
 # 6. _normalize_secure_flag
 # ---------------------------------------------------------------------------
+
 
 class TestNormalizeSecureFlag:
     def setup_method(self):

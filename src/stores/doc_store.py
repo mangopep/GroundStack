@@ -3,8 +3,8 @@
 import io
 import logging
 import os
-from pathlib import Path
 from datetime import timedelta
+from pathlib import Path
 
 from minio import Minio
 from minio.error import S3Error
@@ -183,17 +183,13 @@ class DocStore:
                 length=data_len,
                 content_type=content_type,
             )
-            logger.info(
-                "Uploaded image: %s to bucket %s", image_id, self._images_bucket
-            )
+            logger.info("Uploaded image: %s to bucket %s", image_id, self._images_bucket)
             return image_id
         except S3Error as e:
             logger.error("Failed to upload image: %s", e)
             raise
 
-    def get_pdf_url(
-        self, doc_id: str, expiry_seconds: int = DEFAULT_URL_EXPIRY_SECONDS
-    ) -> str:
+    def get_pdf_url(self, doc_id: str, expiry_seconds: int = DEFAULT_URL_EXPIRY_SECONDS) -> str:
         """
         Generate a presigned URL for a PDF document.
 
@@ -239,4 +235,3 @@ class DocStore:
         except S3Error as e:
             logger.error("Failed to list documents: %s", e)
             raise
-

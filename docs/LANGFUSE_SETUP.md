@@ -225,4 +225,4 @@ Once LangFuse is set up:
 
 **That's it! LangFuse is now tracking all your LLM interactions.**
 
-Return to the main [README](../README.md) to continue with Week 1 setup.
+Return to the main [README](https://github.com/mangopep/rag_platform#readme) to continue with the Week 1 setup.

@@ -7,8 +7,9 @@ from fastapi.staticfiles import StaticFiles
 app = FastAPI(
     title="GroundStack API",
     description="Experimental API and GroundStack workspace preview",
-    version="0.1.0"
+    version="0.1.0",
 )
+
 
 @app.get("/health")
 async def health_check():
@@ -16,9 +17,10 @@ async def health_check():
     return JSONResponse(
         content={
             "status": "ok",
-            "message": "Process is responding; dependency readiness is not checked."
+            "message": "Process is responding; dependency readiness is not checked.",
         }
     )
+
 
 @app.get("/")
 async def root():

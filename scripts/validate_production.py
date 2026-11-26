@@ -19,19 +19,20 @@ Covers:
 Usage:
     python scripts/validate_production.py
 """
-import sys
-import logging
-import urllib.request
+
 import json
-from pathlib import Path
+import logging
+import sys
+import urllib.request
 from collections import Counter
+from pathlib import Path
+
+import psycopg
+from minio import Minio
+from opensearchpy import OpenSearch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
-
-from opensearchpy import OpenSearch
-import psycopg
-from minio import Minio
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -102,13 +103,21 @@ print("\n[OpenSearch Mapping]")
 resp_map = urllib.request.urlopen("http://localhost:9200/rag_chunks/_mapping")
 mapping = json.loads(resp_map.read())
 props = mapping["rag_chunks"]["mappings"].get("properties", {})
-required_fields = ["chunk_id", "title", "content", "section_path", "page_number", "doc_id", "chunk_type"]
+required_fields = [
+    "chunk_id",
+    "title",
+    "content",
+    "section_path",
+    "page_number",
+    "doc_id",
+    "chunk_type",
+]
 for f in required_fields:
     check(f"Mapping has '{f}'", f in props, props.get(f, {}).get("type", "missing"))
 
 # ── BM25 search ───────────────────────────────────────────
 print("\n[BM25 Search]")
-from src.stores.bm25 import BM25Store
+from src.stores.bm25 import BM25Store  # noqa: E402 — the repository root is added to sys.path above for script execution.
 
 bm25 = BM25Store()
 results_bm25 = bm25.search("introduction", top_k=3)
@@ -161,9 +170,12 @@ except Exception as e:
 print("\n[LangFuse Observability]")
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
     from langfuse import Langfuse
+
     from src.config.settings import get_settings
+
     settings = get_settings()
     if settings.langfuse.public_key and settings.langfuse.secret_key:
         lf = Langfuse(
@@ -172,7 +184,9 @@ try:
             host=settings.langfuse.host,
         )
         traces = lf.get_traces(limit=1)
-        check("LangFuse traces present", len(traces.data) > 0, f"{len(traces.data)} recent trace(s)")
+        check(
+            "LangFuse traces present", len(traces.data) > 0, f"{len(traces.data)} recent trace(s)"
+        )
     else:
         check("LangFuse configured", False, "public_key or secret_key not set")
 except Exception as e:

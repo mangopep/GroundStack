@@ -239,11 +239,11 @@ class TestIngestPdf:
 
     def test_valid_pdf_returns_correct_result(self, fake_pdf: Path):
         chunks = [_make_chunk(chunk_id="c1"), _make_chunk(chunk_id="c2")]
-        with _patch_ingest(fake_pdf, chunks=chunks) as mocks:
+        with _patch_ingest(fake_pdf, chunks=chunks):
             result = ingest_pdf(fake_pdf)
 
         assert result.filename == "sample.pdf"
-        assert result.page_count == 2          # _fake_pages() returns 2
+        assert result.page_count == 2  # _fake_pages() returns 2
         assert result.chunk_count == 2
         assert result.indexed_chunk_count == 2
         assert result.table_chunk_count == 0

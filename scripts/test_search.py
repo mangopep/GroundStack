@@ -43,44 +43,34 @@ def test_search():
         print("-" * 60)
 
         # Simple BM25 match query since we haven't built the Vector Embedder yet in Week 1
-        query_body = {
-            "query": {
-                "match": {
-                    "text": question
-                }
-            },
-            "highlight": {
-                "fields": {
-                    "text": {}
-                }
-            }
-        }
+        query_body = {"query": {"match": {"text": question}}, "highlight": {"fields": {"text": {}}}}
 
         try:
             response = os_client.search(index=settings.opensearch_index, body=query_body, size=2)
 
-            hits = response['hits']['hits']
+            hits = response["hits"]["hits"]
             if not hits:
                 print("   ❌ No results found!")
                 continue
 
             for i, hit in enumerate(hits, 1):
-                score = hit['_score']
-                source = hit['_source']
-                filename = source.get('filename', 'Unknown')
+                score = hit["_score"]
+                source = hit["_source"]
+                filename = source.get("filename", "Unknown")
 
                 # Get the highlight if available, else snippet the text
-                highlights = hit.get('highlight', {}).get('text', [])
+                highlights = hit.get("highlight", {}).get("text", [])
                 if highlights:
-                    snippet = highlights[0].replace('\n', ' ').strip()
+                    snippet = highlights[0].replace("\n", " ").strip()
                 else:
-                    snippet = source['text'][:150].replace('\n', ' ') + "..."
+                    snippet = source["text"][:150].replace("\n", " ") + "..."
 
                 print(f"   [{i}] Score: {score:.2f} | 📄 Source: {filename}")
-                print(f"       Snippet: \"{snippet}\"\n")
+                print(f'       Snippet: "{snippet}"\n')
 
         except Exception as e:
             print(f"   ❌ Search failed: {e}")
+
 
 if __name__ == "__main__":
     test_search()

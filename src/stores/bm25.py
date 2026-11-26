@@ -227,13 +227,7 @@ class BM25Store:
         if not doc_id or not doc_id.strip():
             raise ValueError("doc_id cannot be empty")
 
-        delete_by_query_body = {
-            "query": {
-                "term": {
-                    "doc_id": doc_id
-                }
-            }
-        }
+        delete_by_query_body = {"query": {"term": {"doc_id": doc_id}}}
 
         try:
             response = self._client.delete_by_query(
@@ -248,4 +242,3 @@ class BM25Store:
         except Exception as e:
             logger.error("Failed to delete chunks for doc_id %s: %s", doc_id, e)
             raise
-

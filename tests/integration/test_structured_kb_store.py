@@ -14,7 +14,7 @@ Or via docker-compose:
 
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import psycopg
 import pytest
@@ -26,7 +26,7 @@ from src.stores.structured_kb import StructuredKBStore
 # Fixtures
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2026, 3, 10, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 3, 10, 12, 0, 0, tzinfo=UTC)
 
 
 def _conninfo() -> str:
@@ -144,18 +144,14 @@ class TestGetById:
         store.insert(obj)
 
         result = store.get_by_id(obj.id)
-        assert isinstance(result["data"], dict), (
-            f"Expected dict, got {type(result['data'])}"
-        )
+        assert isinstance(result["data"], dict), f"Expected dict, got {type(result['data'])}"
 
     def test_tags_is_list(self, store):
         obj = _make_obj(tags=["docker", "linux"])
         store.insert(obj)
 
         result = store.get_by_id(obj.id)
-        assert isinstance(result["tags"], list), (
-            f"Expected list, got {type(result['tags'])}"
-        )
+        assert isinstance(result["tags"], list), f"Expected list, got {type(result['tags'])}"
         assert set(result["tags"]) == {"docker", "linux"}
 
 
@@ -248,7 +244,5 @@ class TestSearchByType:
         assert len(results) <= 2
 
     def test_no_match_returns_empty(self, store):
-        results = store.search_by_type(
-            "cli_command_reference", "zzznomatchzzz9999"
-        )
+        results = store.search_by_type("cli_command_reference", "zzznomatchzzz9999")
         assert results == []

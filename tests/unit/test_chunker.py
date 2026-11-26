@@ -6,23 +6,21 @@ Each test maps to a specific contract the chunker must honour.  Run with:
     pytest tests/unit/test_chunker.py -v
 """
 
-import pytest
-
 from src.ingestion.chunker import (
     MAX_CHUNK_TOKENS,
     MIN_CHUNK_TOKENS,
     ChunkResult,
-    chunk_pages,
-    estimate_tokens,
     _make_content_id,
     _make_section_id,
+    chunk_pages,
+    estimate_tokens,
 )
 from src.ingestion.pdf_intelligence import PageResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _page(num: int, text: str, tables: list[str] | None = None) -> PageResult:
     """Convenience factory: always native/success."""
@@ -44,6 +42,7 @@ def _only_content_chunks(chunks: list[ChunkResult]) -> list[ChunkResult]:
 # ---------------------------------------------------------------------------
 # 1. Heading detection and section splitting
 # ---------------------------------------------------------------------------
+
 
 class TestHeadingSplit:
     """Proves heading detection + section title assignment work."""
@@ -79,6 +78,7 @@ class TestHeadingSplit:
 # 2. Section hierarchy (parent_id linkage)
 # ---------------------------------------------------------------------------
 
+
 class TestSectionHierarchy:
     """Proves nested headings produce correct parent_id chains."""
 
@@ -86,8 +86,7 @@ class TestSectionHierarchy:
         pages = [
             _page(
                 1,
-                "# Chapter\n\nChapter intro text.\n\n"
-                "## Sub-section\n\nSub-section body text here.",
+                "# Chapter\n\nChapter intro text.\n\n## Sub-section\n\nSub-section body text here.",
             )
         ]
         chunks = chunk_pages(pages, doc_id="t2")
@@ -109,6 +108,7 @@ class TestSectionHierarchy:
 # ---------------------------------------------------------------------------
 # 3. Large section is split into multiple chunks
 # ---------------------------------------------------------------------------
+
 
 class TestLargeSectionSplit:
     """Proves split logic fires and each piece stays within token budget."""
@@ -156,6 +156,7 @@ class TestLargeSectionSplit:
 # 4. Table preservation
 # ---------------------------------------------------------------------------
 
+
 class TestTablePreservation:
     """Proves pipe-delimited tables are extracted as table chunks."""
 
@@ -192,6 +193,7 @@ class TestTablePreservation:
 # 5. Code block preservation
 # ---------------------------------------------------------------------------
 
+
 class TestCodeBlockPreservation:
     """Proves fenced code blocks become code_block chunks."""
 
@@ -216,6 +218,7 @@ class TestCodeBlockPreservation:
 # ---------------------------------------------------------------------------
 # 6. Boilerplate removal
 # ---------------------------------------------------------------------------
+
 
 class TestBoilerplateRemoval:
     """Proves repeated lines across pages are stripped."""
@@ -252,6 +255,7 @@ class TestBoilerplateRemoval:
 # 7. Structural anchor chunk
 # ---------------------------------------------------------------------------
 
+
 class TestStructuralAnchor:
     """Proves a heading with no body text becomes a structural anchor
     when an immediately following table needs a parent_id."""
@@ -284,6 +288,7 @@ class TestStructuralAnchor:
 # ---------------------------------------------------------------------------
 # 8. Deterministic IDs
 # ---------------------------------------------------------------------------
+
 
 class TestDeterministicIDs:
     """Proves re-ingesting the same document produces identical chunk IDs."""
@@ -332,6 +337,7 @@ class TestDeterministicIDs:
 # 9. Page attribution
 # ---------------------------------------------------------------------------
 
+
 class TestPageAttribution:
     """Proves chunks carry the correct page numbers."""
 
@@ -356,12 +362,20 @@ class TestPageAttribution:
         pages = [
             _page(1, "# Valid\n\nContent here."),
             PageResult(
-                page_num=2, text="scanned text", page_type="scanned",
-                extraction_status="skipped", tables=[], images=[],
+                page_num=2,
+                text="scanned text",
+                page_type="scanned",
+                extraction_status="skipped",
+                tables=[],
+                images=[],
             ),
             PageResult(
-                page_num=3, text="", page_type="native",
-                extraction_status="failed", tables=[], images=[],
+                page_num=3,
+                text="",
+                page_type="native",
+                extraction_status="failed",
+                tables=[],
+                images=[],
             ),
         ]
         chunks = chunk_pages(pages, doc_id="t9-skip")
@@ -373,6 +387,7 @@ class TestPageAttribution:
 # ---------------------------------------------------------------------------
 # 10. Duplicate table suppression across sections
 # ---------------------------------------------------------------------------
+
 
 class TestDuplicateTableSuppression:
     """Proves tables are deduplicated within a section but preserved across
@@ -387,9 +402,7 @@ class TestDuplicateTableSuppression:
         chunks = chunk_pages(pages, doc_id="t10")
         table_chunks = [c for c in chunks if c.chunk_type == "table"]
 
-        assert len(table_chunks) == 2, (
-            "Identical tables in different sections should both be kept"
-        )
+        assert len(table_chunks) == 2, "Identical tables in different sections should both be kept"
 
     def test_same_table_same_section_deduplicated(self):
         """Table that appears both inline and in page.tables is not doubled."""

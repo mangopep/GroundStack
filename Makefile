@@ -1,4 +1,10 @@
-.PHONY: dev stop reset init app test golden ingest backup install format lint help
+.PHONY: dev stop reset init app test golden ingest backup setup install format lint typecheck security build smoke integration docs clean help
+
+PYTHON := .venv/bin/python
+RUFF := .venv/bin/ruff
+MYPY := .venv/bin/mypy
+PIP_AUDIT := .venv/bin/pip-audit
+ZENSICAL := .venv/bin/zensical
 
 # Default target
 all: dev
@@ -28,7 +34,13 @@ app:
 
 # Run tests
 test:
-	pytest tests/ -v
+	$(PYTHON) -m pytest -q
+
+# Install the hash-locked application and docs toolchains
+setup:
+	python3.11 -m venv .venv
+	$(PYTHON) -m pip install --require-hashes -r requirements-lock.txt -r requirements-docs.txt
+	$(PYTHON) -m pip install --no-deps -e .
 
 # Run golden tests
 golden:
@@ -43,17 +55,46 @@ backup:
 	pg_dump -h localhost -U rag -d rag_platform -f data/backups/$$(date +%Y%m%d_%H%M%S)_rag_platform.sql
 	@echo "Backup created successfully"
 
-# Install dependencies
-install:
-	pip install -e .
+# Backward-compatible setup target
+install: setup
 
 # Format code
 format:
-	ruff format .
+	$(RUFF) format src scripts tests
 
 # Lint code
 lint:
-	ruff check .
+	$(RUFF) check .
+
+# Type-check validated configuration and schema boundaries strictly
+typecheck:
+	$(MYPY) --strict src/config/settings.py src/schemas/query.py src/schemas/response.py src/schemas/knowledge.py
+
+# Audit exact, hash-locked package versions without installing dependencies again
+security:
+	$(PIP_AUDIT) --requirement requirements-lock.txt --disable-pip
+
+# Build the Python wheel
+build:
+	$(PYTHON) -m pip wheel --no-deps --wheel-dir dist .
+
+# Verify API process and static workspace are reachable; start `make app` first
+smoke:
+	curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8000/health
+	curl --fail --silent --show-error --output /dev/null http://127.0.0.1:8000/workspace/
+	@echo "API health and workspace returned HTTP 200"
+
+# Service-backed tests; configure and start the required services first
+integration:
+	$(PYTHON) -m pytest -q tests/integration
+
+# Strictly build the documentation site
+docs:
+	$(ZENSICAL) build --strict
+
+# Remove generated build/test outputs only; Docker data volumes are untouched
+clean:
+	rm -rf build dist site .pytest_cache .ruff_cache src/groundstack.egg-info
 
 # Show help
 help:
@@ -68,6 +109,14 @@ help:
 	@echo "  make ingest  - Run document ingestion watcher"
 	@echo "  make backup  - Backup PostgreSQL database"
 	@echo "  make install - Install dependencies"
+	@echo "  make setup   - Install hash-locked app and docs dependencies"
 	@echo "  make format  - Format code"
 	@echo "  make lint    - Lint code"
+	@echo "  make typecheck - Strictly type-check configuration and schemas"
+	@echo "  make security - Audit the hash-locked dependencies"
+	@echo "  make build   - Build a Python wheel"
+	@echo "  make smoke   - Check API health and workspace routes"
+	@echo "  make integration - Run service-backed tests"
+	@echo "  make docs    - Strict documentation build"
+	@echo "  make clean   - Remove generated outputs"
 

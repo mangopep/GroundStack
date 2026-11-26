@@ -13,10 +13,13 @@ Usage:
     python scripts/delete_legacy_chunks.py            # actually delete
     python scripts/delete_legacy_chunks.py --dry-run  # preview only
 """
-import sys
+
 import argparse
 import logging
+import sys
 from pathlib import Path
+
+from opensearchpy import OpenSearch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
@@ -25,17 +28,9 @@ parser = argparse.ArgumentParser(description="Delete legacy Phase-1 chunks from 
 parser.add_argument("--dry-run", action="store_true", help="Count but do not delete")
 args = parser.parse_args()
 
-from opensearchpy import OpenSearch
-
 client = OpenSearch([{"host": "localhost", "port": 9200}])
 
-LEGACY_QUERY = {
-    "query": {
-        "bool": {
-            "must_not": [{"exists": {"field": "chunk_type"}}]
-        }
-    }
-}
+LEGACY_QUERY = {"query": {"bool": {"must_not": [{"exists": {"field": "chunk_type"}}]}}}
 
 # Count legacy chunks first
 count_resp = client.count(index="rag_chunks", body=LEGACY_QUERY)
@@ -51,7 +46,9 @@ if legacy_count == 0:
     sys.exit(0)
 
 if args.dry_run:
-    print(f"\n[dry-run] Would delete {legacy_count} legacy chunks. Re-run without --dry-run to proceed.")
+    print(
+        f"\n[dry-run] Would delete {legacy_count} legacy chunks. Re-run without --dry-run to proceed."
+    )
     sys.exit(0)
 
 print(f"\nDeleting {legacy_count} legacy Phase-1 chunks ...")

@@ -14,16 +14,21 @@ Usage:
     python scripts/reindex_real_docs.py data/corpus/real_docs/rfc793_tcp.pdf
     python scripts/reindex_real_docs.py data/corpus/real_docs/rfc791_ip.pdf data/corpus/real_docs/rfc2616_http.pdf
 """
-import sys
+
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
 
-parser = argparse.ArgumentParser(description="Re-ingest real corpus PDF documents via Phase-2 pipeline")
-parser.add_argument("paths", nargs="*", help="PDF paths to ingest (default: data/corpus/real_docs/*.pdf)")
+parser = argparse.ArgumentParser(
+    description="Re-ingest real corpus PDF documents via Phase-2 pipeline"
+)
+parser.add_argument(
+    "paths", nargs="*", help="PDF paths to ingest (default: data/corpus/real_docs/*.pdf)"
+)
 args = parser.parse_args()
 
 if args.paths:
@@ -31,7 +36,9 @@ if args.paths:
 else:
     real_docs_dir = Path("data/corpus/real_docs")
     if not real_docs_dir.exists():
-        print(f"ERROR: {real_docs_dir} does not exist. Pass explicit paths or create the directory.")
+        print(
+            f"ERROR: {real_docs_dir} does not exist. Pass explicit paths or create the directory."
+        )
         sys.exit(1)
     pdf_paths = sorted(real_docs_dir.glob("*.pdf"))
     if not pdf_paths:
@@ -43,7 +50,7 @@ for p in pdf_paths:
     print(f"  {p}")
 print()
 
-from src.ingestion.index_builder import ingest_pdf
+from src.ingestion.index_builder import ingest_pdf  # noqa: E402 — the repository root is added to sys.path above for script execution.
 
 total_pages = 0
 total_chunks = 0

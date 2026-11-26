@@ -101,7 +101,7 @@ def main():
         port=settings.postgres_port,
         user=settings.postgres_user,
         password=settings.postgres_password,
-        dbname=settings.postgres_db
+        dbname=settings.postgres_db,
     )
     print("[5/7] ✓ PostgreSQL connected")
 
@@ -134,7 +134,7 @@ def main():
             print("   ⏳ Parsing with Docling...")
             result = converter.convert(str(pdf_path))
             text = result.document.export_to_markdown()
-            page_count = len(result.document.pages) if hasattr(result.document, 'pages') else 1
+            page_count = len(result.document.pages) if hasattr(result.document, "pages") else 1
             print(f"   ✓ Parsed: {len(text)} chars, {page_count} page(s)")
 
             # Chunk the text
@@ -166,50 +166,48 @@ def main():
 
             # Store metadata in PostgreSQL
             with pg_conn.cursor() as cur:
-                cur.execute("""
+                cur.execute(
+                    """
                     INSERT INTO document_metadata
                     (doc_id, source_type, filename, page_count, chunk_count, minio_path, ingested_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                     ON CONFLICT (doc_id) DO UPDATE SET
                         chunk_count = EXCLUDED.chunk_count,
                         ingested_at = EXCLUDED.ingested_at
-                """, (
-                    doc_id,
-                    "pdf",
-                    pdf_path.name,
-                    page_count,
-                    len(chunks),
-                    f"raw/{pdf_path.name}",
-                    datetime.utcnow()
-                ))
+                """,
+                    (
+                        doc_id,
+                        "pdf",
+                        pdf_path.name,
+                        page_count,
+                        len(chunks),
+                        f"raw/{pdf_path.name}",
+                        datetime.utcnow(),
+                    ),
+                )
                 pg_conn.commit()
             print("   ✓ Stored metadata in PostgreSQL")
 
             # Upload to MinIO
             minio_path = f"raw/{pdf_path.name}"
             minio_client.fput_object(
-                "rag-documents",
-                minio_path,
-                str(pdf_path),
-                content_type="application/pdf"
+                "rag-documents", minio_path, str(pdf_path), content_type="application/pdf"
             )
             print(f"   ✓ Uploaded to MinIO: {minio_path}")
 
-            results.append({
-                "filename": pdf_path.name,
-                "doc_id": doc_id,
-                "chunks": len(chunks),
-                "pages": page_count,
-                "success": True
-            })
+            results.append(
+                {
+                    "filename": pdf_path.name,
+                    "doc_id": doc_id,
+                    "chunks": len(chunks),
+                    "pages": page_count,
+                    "success": True,
+                }
+            )
 
         except Exception as e:
             print(f"   ❌ ERROR: {e}")
-            results.append({
-                "filename": pdf_path.name,
-                "success": False,
-                "error": str(e)
-            })
+            results.append({"filename": pdf_path.name, "success": False, "error": str(e)})
 
     # Close connections
     pg_conn.close()
@@ -225,7 +223,7 @@ def main():
 
     # Verify OpenSearch
     count_result = os_client.count(index=settings.opensearch_index)
-    os_count = count_result['count']
+    os_count = count_result["count"]
     print("\n🔍 OpenSearch verification:")
     print(f"   ✓ Index '{settings.opensearch_index}' contains {os_count} documents")
 
@@ -235,7 +233,7 @@ def main():
         port=settings.postgres_port,
         user=settings.postgres_user,
         password=settings.postgres_password,
-        dbname=settings.postgres_db
+        dbname=settings.postgres_db,
     ) as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM document_metadata")

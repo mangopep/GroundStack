@@ -23,13 +23,14 @@ Usage:
     python scripts/verify_e2e.py --pdf data/corpus/01_handbook.pdf
     python scripts/verify_e2e.py --skip-worker  # skip the slow Part 10 worker test
 """
-import sys
-import asyncio
+
 import argparse
+import asyncio
 import logging
-import time
 import shutil
+import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -37,7 +38,9 @@ logging.basicConfig(level=logging.WARNING)
 
 parser = argparse.ArgumentParser(description="End-to-end Phase-2 verification")
 parser.add_argument("--pdf", default="data/corpus/real_docs/rfc793_tcp.pdf", help="Test PDF path")
-parser.add_argument("--skip-worker", action="store_true", help="Skip the slow background-worker test (Part 10)")
+parser.add_argument(
+    "--skip-worker", action="store_true", help="Skip the slow background-worker test (Part 10)"
+)
 args = parser.parse_args()
 
 passed: list[str] = []
@@ -63,6 +66,7 @@ print("=" * 60)
 print("\n[Part 2] PDF Intelligence")
 try:
     from src.ingestion.pdf_intelligence import process_pdf
+
     pages = process_pdf(args.pdf)
     p0 = pages[0] if pages else None
     ok_count = len(pages) > 0
@@ -70,8 +74,11 @@ try:
         hasattr(p0, f) for f in ("page_num", "text", "page_type", "extraction_status")
     )
     ok_text = p0 is not None and bool(p0.text.strip())
-    check("Part 2", ok_count and ok_fields and ok_text,
-          f"{len(pages)} pages extracted, text present={ok_text}")
+    check(
+        "Part 2",
+        ok_count and ok_fields and ok_text,
+        f"{len(pages)} pages extracted, text present={ok_text}",
+    )
 except Exception as e:
     check("Part 2", False, str(e))
     pages = []
@@ -80,6 +87,7 @@ except Exception as e:
 print("\n[Part 3] Chunker")
 try:
     from src.ingestion.chunker import chunk_pages
+
     chunks = chunk_pages(pages, doc_id="verify_e2e_test")
     required = ["id", "title", "content", "section_path", "page_numbers", "chunk_type"]
     if chunks:
@@ -88,8 +96,11 @@ try:
         sizes = [len((getattr(c, "content", "") or "").split()) for c in chunks]
         over_1500 = sum(1 for s in sizes if s > 1500)
         ok = (not missing) and (over_1500 == 0)
-        check("Part 3", ok,
-              f"{len(chunks)} chunks, max_tokens={max(sizes)}, over_1500={over_1500}, missing_fields={missing or 'none'}")
+        check(
+            "Part 3",
+            ok,
+            f"{len(chunks)} chunks, max_tokens={max(sizes)}, over_1500={over_1500}, missing_fields={missing or 'none'}",
+        )
     else:
         check("Part 3", False, "no chunks produced")
 except Exception as e:
@@ -98,8 +109,11 @@ except Exception as e:
 # ── Part 4: BM25 Search ───────────────────────────────────
 print("\n[Part 4] BM25 Search")
 try:
+    import json
+    import urllib.request
+
     from src.stores.bm25 import BM25Store
-    import urllib.request, json
+
     store = BM25Store()
     # Use a term present in the RFC corpus; "protocol" appears in all three RFCs
     results = store.search("protocol", top_k=3)
@@ -108,8 +122,11 @@ try:
     index_count = json.loads(idx_resp.read()).get("count", 0)
     if results:
         missing = [f for f in req_fields if f not in results[0]]
-        check("Part 4", len(results) > 0 and not missing and index_count > 0,
-              f"results={len(results)}, index_count={index_count}, missing_fields={missing or 'none'}")
+        check(
+            "Part 4",
+            len(results) > 0 and not missing and index_count > 0,
+            f"results={len(results)}, index_count={index_count}, missing_fields={missing or 'none'}",
+        )
     else:
         check("Part 4", False, f"no results returned (index has {index_count} docs)")
 except Exception as e:
@@ -119,6 +136,7 @@ except Exception as e:
 print("\n[Part 5] Structured KB")
 try:
     from src.stores.structured_kb import StructuredKBStore
+
     kb = StructuredKBStore()
     results5 = kb.search_by_type("root_cause_analysis", "error")
     check("Part 5", True, f"store functional, returned {len(results5)} items (0 ok if no RCA data)")
@@ -129,6 +147,7 @@ except Exception as e:
 print("\n[Part 6] Document Store (MinIO)")
 try:
     from minio import Minio
+
     from src.config.settings import get_settings
 
     settings = get_settings()
@@ -152,6 +171,7 @@ except Exception as e:
 print("\n[Part 7] Metadata Persistence (PostgreSQL)")
 try:
     import psycopg
+
     conn = psycopg.connect(get_settings().database.url)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM document_metadata")
@@ -164,7 +184,8 @@ except Exception as e:
 # ── Part 8: Ingestion Watcher ─────────────────────────────
 print("\n[Part 8] Ingestion Watcher")
 try:
-    from src.ingestion.watcher import classify_priority, IngestionWatcher
+    from src.ingestion.watcher import IngestionWatcher, classify_priority
+
     priority_tests = [
         ("rca_analysis.pdf", "P0", 0),
         ("cli_reference.pdf", "P1", 1),
@@ -172,8 +193,7 @@ try:
         ("release_notes.pdf", "P3", 3),
     ]
     priority_ok = all(
-        classify_priority(Path(fname)) == (label, num)
-        for fname, label, num in priority_tests
+        classify_priority(Path(fname)) == (label, num) for fname, label, num in priority_tests
     )
     with tempfile.TemporaryDirectory() as tmpdir:
         watcher = IngestionWatcher(watch_path=tmpdir, max_workers=1, debounce_seconds=0.2)
@@ -183,8 +203,11 @@ try:
         time.sleep(0.8)
         job_detected = watcher._job_counter > 0
         watcher.stop()
-    check("Part 8", priority_ok and job_detected,
-          f"classify_priority ok={priority_ok}, job_detected={job_detected}")
+    check(
+        "Part 8",
+        priority_ok and job_detected,
+        f"classify_priority ok={priority_ok}, job_detected={job_detected}",
+    )
 except Exception as e:
     check("Part 8", False, str(e))
 
@@ -211,8 +234,8 @@ if args.skip_worker:
     print("  (skipped — --skip-worker flag set)")
 else:
     try:
-        from src.workers.queue import TaskQueue, TaskType
         from src.workers.ingest_worker import IngestWorker
+        from src.workers.queue import TaskQueue, TaskType
 
         async def _test_worker():
             q = TaskQueue(max_workers=1)
@@ -241,7 +264,11 @@ else:
 
         has_handler, task_id, final_status = asyncio.run(_test_worker())
         ok10 = has_handler and task_id is not None and final_status in ("completed", "failed")
-        check("Part 10", ok10, f"handler_registered={has_handler}, task_id={task_id}, final_status={final_status}")
+        check(
+            "Part 10",
+            ok10,
+            f"handler_registered={has_handler}, task_id={task_id}, final_status={final_status}",
+        )
     except Exception as e:
         check("Part 10", False, str(e))
 
@@ -249,6 +276,7 @@ else:
 print("\n[Part 11] Full E2E Pipeline (ingest_pdf)")
 try:
     from src.ingestion.index_builder import ingest_pdf
+
     result = ingest_pdf(args.pdf)
     ok11 = (
         result.status == "success"
@@ -256,8 +284,11 @@ try:
         and result.chunk_count > 0
         and result.indexed_chunk_count > 0
     )
-    check("Part 11", ok11,
-          f"status={result.status}, pages={result.page_count}, chunks={result.chunk_count}, indexed={result.indexed_chunk_count}")
+    check(
+        "Part 11",
+        ok11,
+        f"status={result.status}, pages={result.page_count}, chunks={result.chunk_count}, indexed={result.indexed_chunk_count}",
+    )
 except Exception as e:
     check("Part 11", False, str(e))
 

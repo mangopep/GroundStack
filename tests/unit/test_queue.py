@@ -7,7 +7,7 @@ Each test maps to a specific contract the queue must honour. Run with:
 """
 
 import asyncio
-from unittest.mock import AsyncMock, patch
+import sys
 
 import pytest
 
@@ -18,7 +18,6 @@ from src.workers.queue import (
     TaskType,
     get_queue,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -39,13 +38,41 @@ class TestQueuedTaskOrdering:
     """QueuedTask must sort by (priority, sequence) so the heap works correctly."""
 
     def test_lower_priority_number_sorts_first(self):
-        high = QueuedTask(priority=1, sequence=0, task_id="a", task_type=TaskType.INVALIDATE_CACHE, payload={}, created_at=0.0)
-        low = QueuedTask(priority=10, sequence=1, task_id="b", task_type=TaskType.INVALIDATE_CACHE, payload={}, created_at=0.0)
+        high = QueuedTask(
+            priority=1,
+            sequence=0,
+            task_id="a",
+            task_type=TaskType.INVALIDATE_CACHE,
+            payload={},
+            created_at=0.0,
+        )
+        low = QueuedTask(
+            priority=10,
+            sequence=1,
+            task_id="b",
+            task_type=TaskType.INVALIDATE_CACHE,
+            payload={},
+            created_at=0.0,
+        )
         assert high < low
 
     def test_same_priority_fifo_by_sequence(self):
-        first = QueuedTask(priority=5, sequence=0, task_id="a", task_type=TaskType.INVALIDATE_CACHE, payload={}, created_at=0.0)
-        second = QueuedTask(priority=5, sequence=1, task_id="b", task_type=TaskType.INVALIDATE_CACHE, payload={}, created_at=0.0)
+        first = QueuedTask(
+            priority=5,
+            sequence=0,
+            task_id="a",
+            task_type=TaskType.INVALIDATE_CACHE,
+            payload={},
+            created_at=0.0,
+        )
+        second = QueuedTask(
+            priority=5,
+            sequence=1,
+            task_id="b",
+            task_type=TaskType.INVALIDATE_CACHE,
+            payload={},
+            created_at=0.0,
+        )
         assert first < second
 
     def test_to_dict_has_expected_keys(self):
@@ -82,6 +109,23 @@ class TestTaskQueueConstruction:
     def test_valid_max_workers_stores_value(self):
         q = _make_queue(max_workers=3)
         assert q.max_workers == 3
+
+
+class TestIngestHandler:
+    @pytest.mark.anyio
+    async def test_import_failure_is_not_reported_as_success(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "src.ingestion.index_builder", None)
+        task = QueuedTask(
+            priority=5,
+            sequence=0,
+            task_id="ingest-import-failure",
+            task_type=TaskType.INGEST_PDF,
+            payload={"pdf_path": "/tmp/document.pdf"},
+            created_at=0.0,
+        )
+
+        with pytest.raises(ModuleNotFoundError):
+            await _make_queue()._handle_ingest_pdf(task)
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +315,6 @@ class TestPriorityOrdering:
         q = _make_queue(max_workers=1)
 
         dequeue_order: list[str] = []
-        start_processing = asyncio.Event()
 
         async def tracking_handler(task):
             dequeue_order.append(task.payload["label"])

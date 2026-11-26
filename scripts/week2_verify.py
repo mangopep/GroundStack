@@ -18,7 +18,7 @@ Run:
 
 import hashlib
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -133,7 +133,9 @@ section("3. Ingestion — PostgreSQL metadata")
 try:
     with psycopg.connect(conninfo, connect_timeout=5) as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT doc_id, filename, page_count, chunk_count FROM document_metadata ORDER BY ingested_at DESC LIMIT 10")
+            cur.execute(
+                "SELECT doc_id, filename, page_count, chunk_count FROM document_metadata ORDER BY ingested_at DESC LIMIT 10"
+            )
             rows = cur.fetchall()
 
     check(
@@ -142,7 +144,9 @@ try:
         f"{len(rows)} most-recent documents:",
     )
     for doc_id, filename, pages, chunks in rows:
-        print(f"       {filename:35s}  pages={pages or '?':>4}  chunks={chunks or '?':>4}  id={doc_id}")
+        print(
+            f"       {filename:35s}  pages={pages or '?':>4}  chunks={chunks or '?':>4}  id={doc_id}"
+        )
 except Exception as e:
     check("document_metadata has rows", False, str(e))
     rows = []
@@ -168,7 +172,7 @@ if SEED_KB:
         )
         from src.stores.structured_kb import StructuredKBStore
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         seed_source = Source(doc_id="seed-doc-id", filename="seed_verification.pdf", page_number=1)
 
         rca_obj = KnowledgeObject(
@@ -211,11 +215,19 @@ if SEED_KB:
                 command="ingest_pdf",
                 syntax="python scripts/phase1.py ingest <path>",
                 parameters=[
-                    CommandParameter(name="--path", required=True, description="PDF file or directory"),
-                    CommandParameter(name="--force", required=False, description="Re-ingest even if already present"),
+                    CommandParameter(
+                        name="--path", required=True, description="PDF file or directory"
+                    ),
+                    CommandParameter(
+                        name="--force",
+                        required=False,
+                        description="Re-ingest even if already present",
+                    ),
                 ],
                 examples=[
-                    CommandExample(usage="python scripts/phase1.py ingest data/corpus/rfc793_tcp.pdf"),
+                    CommandExample(
+                        usage="python scripts/phase1.py ingest data/corpus/rfc793_tcp.pdf"
+                    ),
                 ],
             ),
         )
@@ -264,10 +276,10 @@ except Exception as e:
 section("5. BM25 Search Quality (Week 2 goal)")
 
 QUERIES = [
-    ("TCP three-way handshake",        "three-way handshake"),
-    ("HTTP caching headers",           "cache"),
-    ("IP header format",               "header"),
-    ("CLI command syntax",             "command"),
+    ("TCP three-way handshake", "three-way handshake"),
+    ("HTTP caching headers", "cache"),
+    ("IP header format", "header"),
+    ("CLI command syntax", "command"),
 ]
 
 if os_client and chunk_count > 0:
@@ -282,7 +294,11 @@ if os_client and chunk_count > 0:
             )
             hits = resp["hits"]["hits"]
             top_score = hits[0]["_score"] if hits else 0
-            top_text = hits[0]["_source"].get("text", hits[0]["_source"].get("content", ""))[:80] if hits else ""
+            top_text = (
+                hits[0]["_source"].get("text", hits[0]["_source"].get("content", ""))[:80]
+                if hits
+                else ""
+            )
             relevant = len(hits) > 0 and keyword.lower() in top_text.lower()
             check(
                 f'Search: "{query}"',
@@ -292,7 +308,7 @@ if os_client and chunk_count > 0:
         except Exception as e:
             check(f'Search: "{query}"', False, str(e))
 else:
-    print(f"  ⚠️   Skipping search — no chunks in index yet")
+    print("  ⚠️   Skipping search — no chunks in index yet")
 
 # ─────────────────────────────────────────────────────────────
 # 6. MinIO has raw PDFs
@@ -324,7 +340,7 @@ if mc:
 section("Summary")
 
 passed = sum(1 for _, ok, _ in results if ok)
-total  = len(results)
+total = len(results)
 failed = total - passed
 
 print(f"  {passed}/{total} checks passed\n")

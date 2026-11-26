@@ -193,7 +193,6 @@ def split_large_text(
     current_pages: set[int] = set()
 
     for p_text, p_pages in paragraphs:
-
         p_tokens = estimate_tokens(p_text)
 
         # Handle oversized single paragraph by splitting at sentence boundaries
@@ -206,7 +205,6 @@ def split_large_text(
                 # otherwise inflate the char-based estimate on the next iteration.
                 _joined_s = (current + " " + s) if current else s
                 if estimate_tokens(_joined_s) > MAX_CHUNK_TOKENS:
-
                     # Only flush if we have meaningful content (enforce MIN)
                     if estimate_tokens(current) >= MIN_CHUNK_TOKENS:
                         _c = current.strip()
@@ -240,7 +238,6 @@ def split_large_text(
         # to slightly exceed MAX_CHUNK_TOKENS once actually joined.
         _joined_p = (current + "\n\n" + p_text) if current else p_text
         if estimate_tokens(_joined_p) > MAX_CHUNK_TOKENS:
-
             # Only flush if we meet minimum threshold
             if estimate_tokens(current) >= MIN_CHUNK_TOKENS:
                 _c = current.strip()
@@ -402,8 +399,7 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
                     _line_page_sets[_s].add(_pg.page_num)
         _bp_threshold = max(2, int(len(valid_pages) * BOILERPLATE_PAGE_FRACTION))
         boilerplate_lines = {
-            _ln for _ln, _pages in _line_page_sets.items()
-            if len(_pages) >= _bp_threshold
+            _ln for _ln, _pages in _line_page_sets.items() if len(_pages) >= _bp_threshold
         }
         if boilerplate_lines:
             logger.debug(
@@ -511,7 +507,9 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
             section_id = _make_content_id(doc_id, "section", _normalized, scope=section_path)
             content_parent_id = current_section_id  # child of structural anchor
         else:
-            section_id = current_section_id or _make_content_id(doc_id, "section", _normalized, scope=section_path)
+            section_id = current_section_id or _make_content_id(
+                doc_id, "section", _normalized, scope=section_path
+            )
             content_parent_id = parent_id
 
         if tokens <= MAX_CHUNK_TOKENS:
@@ -577,12 +575,10 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
             logger.debug(f"Emitted structural section anchor: {current_title}")
 
     for page in valid_pages:
-
         lines = page.text.split("\n")
         i = 0
 
         while i < len(lines):
-
             line = lines[i]
             stripped = line.strip()
 
@@ -623,7 +619,6 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
                 continue
 
             if is_heading(stripped):
-
                 flush_paragraph()  # Flush any pending paragraph
                 flush_section()
 
@@ -631,16 +626,14 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
                 title = normalize_heading(stripped)
 
                 # Remove deeper or equal level headings from stack
-                section_stack = [
-                    s for s in section_stack if s[0] < level
-                ]
+                section_stack = [s for s in section_stack if s[0] < level]
 
                 # Compute section_path BEFORE allocating the ID so that the
                 # deterministic ID can embed the full path (Issue #21).
                 parent_id = section_stack[-1][2] if section_stack else None
-                section_path = " > ".join(
-                    s[1] for s in section_stack
-                ) + (" > " + title if section_stack else title)
+                section_path = " > ".join(s[1] for s in section_stack) + (
+                    " > " + title if section_stack else title
+                )
 
                 # Deterministic ID based on document position.
                 # Use an ordinal to avoid collisions when the same section_path
@@ -661,7 +654,6 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
                 continue
 
             if _looks_like_table_row(stripped):
-
                 table_lines = []
                 j = i
 
@@ -708,7 +700,6 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
             i += 1
 
         for table in page.tables:
-
             flush_paragraph()
             ensure_section_parent_emitted(page.page_num)
 
@@ -750,7 +741,8 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
             and not merged[-1].is_structural
             and merged[-1].section_path == _c.section_path
             and merged[-1].doc_id == _c.doc_id
-            and estimate_tokens(merged[-1].content) + estimate_tokens(_c.content) <= MAX_CHUNK_TOKENS
+            and estimate_tokens(merged[-1].content) + estimate_tokens(_c.content)
+            <= MAX_CHUNK_TOKENS
         ):
             _prev = merged[-1]
             # ID stability: keep the first chunk's ID so that downstream
@@ -774,10 +766,7 @@ def chunk_pages(page_results: list[PageResult], doc_id: str) -> list[ChunkResult
     # Post-process: prune structural chunks that no other chunk references as a parent.
     # An unreferenced structural chunk adds noise without contributing hierarchy value.
     referenced_parent_ids = {c.parent_id for c in chunks if c.parent_id}
-    chunks = [
-        c for c in chunks
-        if not c.is_structural or c.id in referenced_parent_ids
-    ]
+    chunks = [c for c in chunks if not c.is_structural or c.id in referenced_parent_ids]
 
     # Enhanced logging
     content_chunks = [c for c in chunks if not c.is_structural and c.content]

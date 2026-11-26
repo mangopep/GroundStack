@@ -12,7 +12,7 @@ All database I/O is mocked — these tests verify Python logic only:
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,12 +20,11 @@ import pytest
 from src.schemas.knowledge import CLICommandReference, KnowledgeObject
 from src.stores.structured_kb import StructuredKBStore
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-NOW = datetime(2026, 3, 10, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 3, 10, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_obj(
@@ -73,8 +72,17 @@ def store():
 
 class TestRowToDict:
     def test_basic_mapping(self, store):
-        row = ("id1", "cli_command_reference", 1, {"command": "ls"}, "h1",
-               NOW, NOW, "system", ["linux"])
+        row = (
+            "id1",
+            "cli_command_reference",
+            1,
+            {"command": "ls"},
+            "h1",
+            NOW,
+            NOW,
+            "system",
+            ["linux"],
+        )
         result = store._row_to_dict(row)
 
         assert result["id"] == "id1"
@@ -93,8 +101,17 @@ class TestRowToDict:
 
     def test_data_string_fallback(self, store):
         """data returned as JSON string (fallback path) is decoded to dict."""
-        row = ("id1", "cli_command_reference", 1,
-               json.dumps({"command": "ls"}), "h1", NOW, NOW, "sys", [])
+        row = (
+            "id1",
+            "cli_command_reference",
+            1,
+            json.dumps({"command": "ls"}),
+            "h1",
+            NOW,
+            NOW,
+            "sys",
+            [],
+        )
         result = store._row_to_dict(row)
 
         assert isinstance(result["data"], dict)
@@ -102,8 +119,17 @@ class TestRowToDict:
 
     def test_tags_string_fallback(self, store):
         """tags returned as JSON string (fallback path) is decoded to list."""
-        row = ("id1", "cli_command_reference", 1, {}, "h1", NOW, NOW, "sys",
-               json.dumps(["linux", "docker"]))
+        row = (
+            "id1",
+            "cli_command_reference",
+            1,
+            {},
+            "h1",
+            NOW,
+            NOW,
+            "sys",
+            json.dumps(["linux", "docker"]),
+        )
         result = store._row_to_dict(row)
 
         assert isinstance(result["tags"], list)
@@ -140,8 +166,15 @@ class TestSerializeKnowledgeObject:
         result = store._serialize_knowledge_object(obj)
 
         assert set(result.keys()) == {
-            "id", "type", "version", "data", "chunk_hash",
-            "created_at", "updated_at", "created_by", "tags",
+            "id",
+            "type",
+            "version",
+            "data",
+            "chunk_hash",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "tags",
         }
 
     def test_id_and_type(self, store):
@@ -241,9 +274,19 @@ class TestSearchByType:
         return mock_cur
 
     def test_returns_results_with_score(self, store):
-        row = ("id1", "cli_command_reference", 1, {"command": "ls"},
-               "h1", NOW, NOW, "sys", ["linux"], 0.87)
-        cur = self._setup_cursor(store, [row])
+        row = (
+            "id1",
+            "cli_command_reference",
+            1,
+            {"command": "ls"},
+            "h1",
+            NOW,
+            NOW,
+            "sys",
+            ["linux"],
+            0.87,
+        )
+        self._setup_cursor(store, [row])
 
         results = store.search_by_type("cli_command_reference", "docker")
 
@@ -353,8 +396,17 @@ class TestGetById:
         return mock_cur
 
     def test_returns_dict_when_found(self, store):
-        row = ("id1", "cli_command_reference", 1, {"command": "ls"},
-               "h1", NOW, NOW, "sys", ["linux"])
+        row = (
+            "id1",
+            "cli_command_reference",
+            1,
+            {"command": "ls"},
+            "h1",
+            NOW,
+            NOW,
+            "sys",
+            ["linux"],
+        )
         self._setup_cursor(store, row)
 
         result = store.get_by_id("id1")

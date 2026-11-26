@@ -14,11 +14,14 @@ Usage:
     python scripts/verify_rfc_chunks.py --doc-id rfc793_tcp.pdf  # specific doc
     python scripts/verify_rfc_chunks.py --size 500               # fetch up to 500 chunks
 """
-import sys
+
 import argparse
 import logging
+import sys
 from collections import Counter
 from pathlib import Path
+
+from opensearchpy import OpenSearch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.WARNING)
@@ -27,8 +30,6 @@ parser = argparse.ArgumentParser(description="Deep chunk quality inspection for 
 parser.add_argument("--doc-id", help="doc_id to inspect (default: document with most chunks)")
 parser.add_argument("--size", type=int, default=500, help="Max chunks to fetch (default: 500)")
 args = parser.parse_args()
-
-from opensearchpy import OpenSearch
 
 client = OpenSearch([{"host": "localhost", "port": 9200}])
 
@@ -58,7 +59,15 @@ resp = client.search(
     body={
         "query": {"term": {"doc_id": doc_id}},
         "size": args.size,
-        "_source": ["content", "title", "section_path", "page_number", "chunk_type", "is_structural", "doc_id"],
+        "_source": [
+            "content",
+            "title",
+            "section_path",
+            "page_number",
+            "chunk_type",
+            "is_structural",
+            "doc_id",
+        ],
     },
 )
 total_in_index = resp["hits"]["total"]["value"]
@@ -87,7 +96,17 @@ print(f"  Chunks < 100 (best-effort): {under_100} ({100 * under_100 / len(word_s
 
 # Token distribution
 print("\n  Distribution:")
-bands = [(0, 10), (10, 30), (30, 60), (60, 100), (100, 200), (200, 500), (500, 1000), (1000, 1500), (1500, 9999)]
+bands = [
+    (0, 10),
+    (10, 30),
+    (30, 60),
+    (60, 100),
+    (100, 200),
+    (200, 500),
+    (500, 1000),
+    (1000, 1500),
+    (1500, 9999),
+]
 for lo, hi in bands:
     count = sum(1 for s in word_sizes if lo <= s < hi)
     if count:
@@ -95,7 +114,7 @@ for lo, hi in bands:
         print(f"  {lo:5d}–{hi:5d}: {count:4d}  {bar}")
 
 # ── Chunk type distribution ───────────────────────────────
-print(f"\n[Chunk types]")
+print("\n[Chunk types]")
 type_counts = Counter(c.get("chunk_type", "unknown") for c in chunks)
 for t, n in sorted(type_counts.items()):
     print(f"  {t}: {n}")
@@ -103,7 +122,7 @@ for t, n in sorted(type_counts.items()):
 # ── section_path coverage ─────────────────────────────────
 has_path = sum(1 for c in chunks if c.get("section_path"))
 pct = 100 * has_path / len(chunks)
-print(f"\n[section_path coverage]")
+print("\n[section_path coverage]")
 print(f"  {has_path}/{len(chunks)} chunks ({pct:.1f}%)")
 sample_paths = sorted({c["section_path"] for c in chunks if c.get("section_path")})[:10]
 print("  Sample section_paths:")

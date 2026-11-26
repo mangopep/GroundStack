@@ -16,11 +16,13 @@ def test_data_dir():
     # Teardown
     shutil.rmtree(temp_dir)
 
+
 @pytest.fixture
 def corrupted_pdf(test_data_dir):
     path = test_data_dir / "corrupted.pdf"
     path.write_bytes(b"This is not a valid PDF file. It is just some random bytes.")
     return path
+
 
 @pytest.fixture
 def large_pdf(test_data_dir):
@@ -29,10 +31,11 @@ def large_pdf(test_data_dir):
     # Create a 20-page document
     for i in range(20):
         page = doc.new_page()
-        page.insert_text((50, 50), f"This is native text on page {i+1}. " * 10)
+        page.insert_text((50, 50), f"This is native text on page {i + 1}. " * 10)
     doc.save(path)
     doc.close()
     return path
+
 
 @pytest.fixture
 def mixed_layout_pdf(test_data_dir):
@@ -51,11 +54,15 @@ def mixed_layout_pdf(test_data_dir):
     doc.close()
     return path
 
+
 def test_corrupted_pdf_handling(corrupted_pdf):
     # PyMuPDF should instantly throw FileDataError (which inherits from Exception in fitz)
     with pytest.raises(Exception) as exc_info:
         process_pdf(corrupted_pdf)
-    assert "Failed to open file" in str(exc_info.value) or "FileDataError" in str(exc_info.value.__class__.__name__)
+    assert "Failed to open file" in str(exc_info.value) or "FileDataError" in str(
+        exc_info.value.__class__.__name__
+    )
+
 
 def test_large_pdf_extraction_status(large_pdf):
     # Docling versions may leave pages empty; those pages must report the
@@ -67,6 +74,7 @@ def test_large_pdf_extraction_status(large_pdf):
         assert res.page_type == "native"
         assert res.extraction_status in {"success", "partial_fallback"}
         assert len(res.text) > 0
+
 
 def test_mixed_layout_status_tracking(mixed_layout_pdf, monkeypatch):
     # First verify standard extraction
@@ -98,9 +106,11 @@ def test_mixed_layout_status_tracking(mixed_layout_pdf, monkeypatch):
 
             class MockResult:
                 document = MockDoc()
+
             return MockResult()
 
     import ingestion.pdf_intelligence as pdf_mod  # noqa: F401
+
     monkeypatch.setattr("ingestion.pdf_intelligence._get_converter", lambda: MockConverter())
 
     results = process_pdf(mixed_layout_pdf)

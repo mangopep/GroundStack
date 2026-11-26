@@ -15,14 +15,13 @@ from pathlib import Path
 
 import pytest
 from minio import Minio
-from minio.error import S3Error
 
 from src.stores.doc_store import DocStore
-
 
 # ---------------------------------------------------------------------------
 # Reachability guard
 # ---------------------------------------------------------------------------
+
 
 def _minio_reachable() -> bool:
     endpoint = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
@@ -46,6 +45,7 @@ pytestmark = pytest.mark.skipif(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _uid(prefix: str = "test") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
@@ -67,6 +67,7 @@ def sample_pdf(tmp_path) -> Path:
 # ---------------------------------------------------------------------------
 # 1. PDF upload → list → presigned URL
 # ---------------------------------------------------------------------------
+
 
 class TestPdfRoundTrip:
     def test_upload_pdf_appears_in_list(self, store, sample_pdf):
@@ -103,6 +104,7 @@ class TestPdfRoundTrip:
 # 2. Image upload
 # ---------------------------------------------------------------------------
 
+
 class TestImageUpload:
     def test_upload_image_png(self, store):
         image_id = _uid("img-png")
@@ -128,6 +130,7 @@ class TestImageUpload:
 # 3. list_docs
 # ---------------------------------------------------------------------------
 
+
 class TestListDocs:
     def test_list_docs_returns_list(self, store):
         docs = store.list_docs()
@@ -144,6 +147,7 @@ class TestListDocs:
 # ---------------------------------------------------------------------------
 # 4. Validation still enforced against real server
 # ---------------------------------------------------------------------------
+
 
 class TestValidationLive:
     def test_upload_pdf_rejects_non_pdf(self, store, tmp_path):

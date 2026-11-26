@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 """Quick chunk inspector."""
+
 import sys
+
 sys.path.insert(0, ".")
 
 from opensearchpy import OpenSearch
+
 from src.config.settings import get_settings
 
 s = get_settings()
 oc = OpenSearch(
     hosts=[{"host": s.opensearch_host, "port": s.opensearch_port}],
-    use_ssl=False, verify_certs=False,
+    use_ssl=False,
+    verify_certs=False,
 )
 
 filename = sys.argv[1] if len(sys.argv) > 1 else None

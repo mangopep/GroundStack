@@ -3,15 +3,13 @@ Unit tests for src/ingestion/watcher.py
 """
 
 import heapq
-import tempfile
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from src.ingestion.watcher import IngestionJob, IngestionWatcher, classify_priority
-
 
 # =============================================================================
 # classify_priority

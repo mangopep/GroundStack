@@ -24,7 +24,7 @@ import logging
 import os
 import shutil
 import traceback
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -240,9 +240,7 @@ class IngestWorker:
             result.chunk_count,
         )
 
-    async def _run_ingest_with_retries(
-        self, pdf_path: Path, task_payload: dict[str, Any]
-    ) -> Any:
+    async def _run_ingest_with_retries(self, pdf_path: Path, task_payload: dict[str, Any]) -> Any:
         """
         Run the ingestion with retry logic.
 
@@ -270,6 +268,7 @@ class IngestWorker:
                 # Run the synchronous ingestion in a thread pool.
                 # Import here to avoid a hard dependency at module load time.
                 from src.ingestion.index_builder import ingest_pdf  # noqa: PLC0415
+
                 result = await asyncio.to_thread(ingest_pdf, str(pdf_path))
 
                 logger.info(
@@ -392,7 +391,7 @@ Failed File: {failed_path}
 Exception: {type(error).__name__}: {error}
 
 Traceback:
-{''.join(traceback_str)}
+{"".join(traceback_str)}
 """
 
             error_log_path.write_text(content)
@@ -472,7 +471,7 @@ Traceback:
                     try:
                         cur.execute(
                             """
-                            UPDATE document_metadata 
+                            UPDATE document_metadata
                             SET status = %s, error = %s, updated_at = %s
                             WHERE doc_id = %s
                             """,
@@ -532,9 +531,7 @@ def main() -> None:
     """
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run the PDF ingestion worker"
-    )
+    parser = argparse.ArgumentParser(description="Run the PDF ingestion worker")
     parser.add_argument(
         "--max-attempts",
         type=int,
@@ -592,4 +589,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

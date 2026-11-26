@@ -20,7 +20,7 @@ Run:
 
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -31,7 +31,7 @@ PASS_LABEL = "PASS"
 FAIL_LABEL = "FAIL"
 SKIP_LABEL = "SKIP"
 
-results: list[tuple[str, str, str]] = []   # (component, label, detail)
+results: list[tuple[str, str, str]] = []  # (component, label, detail)
 
 
 def ok(component: str, detail: str = "") -> None:
@@ -68,6 +68,7 @@ section("1. src/schemas/knowledge.py — Pydantic model validation")
 
 try:
     import hashlib
+
     from src.schemas.knowledge import (
         CLICommandReference,
         CommandExample,
@@ -84,11 +85,12 @@ try:
         VersionInfo,
     )
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     base = dict(
         version=1,
         sources=[Source(doc_id="doc1", filename="a.pdf", page_number=1)],
-        created_at=now, updated_at=now,
+        created_at=now,
+        updated_at=now,
         created_by="phase2_verify",
         chunk_hash=hashlib.sha256(b"x").hexdigest(),
         tags=["test"],
@@ -96,62 +98,90 @@ try:
 
     # RootCauseAnalysis
     rca = KnowledgeObject(
-        **base, id="s-rca-1", type="root_cause_analysis",
+        **base,
+        id="s-rca-1",
+        type="root_cause_analysis",
         data=RootCauseAnalysis(
-            title="Connection timeout", symptoms=["slow queries", "timeouts"],
+            title="Connection timeout",
+            symptoms=["slow queries", "timeouts"],
             severity="S2",
             root_cause=RootCauseDetail(summary="pool exhausted", affected_versions=["1.0"]),
-            fix=FixDetail(steps=["increase pool size"], cli_commands=["psql -c 'SELECT...'"],
-                          estimated_time_minutes=15),
+            fix=FixDetail(
+                steps=["increase pool size"],
+                cli_commands=["psql -c 'SELECT...'"],
+                estimated_time_minutes=15,
+            ),
         ),
     )
     dumped = rca.model_dump()
     assert dumped["data"]["severity"] == "S2"
-    ok("RootCauseAnalysis round-trips correctly",
-       f"severity={dumped['data']['severity']}  symptoms={len(dumped['data']['symptoms'])}")
+    ok(
+        "RootCauseAnalysis round-trips correctly",
+        f"severity={dumped['data']['severity']}  symptoms={len(dumped['data']['symptoms'])}",
+    )
 
     # CLICommandReference
     cli = KnowledgeObject(
-        **base, id="s-cli-1", type="cli_command_reference",
+        **base,
+        id="s-cli-1",
+        type="cli_command_reference",
         data=CLICommandReference(
-            command="ingest", syntax="python phase1.py ingest <path>",
+            command="ingest",
+            syntax="python phase1.py ingest <path>",
             parameters=[CommandParameter(name="--path", required=True, description="PDF path")],
             examples=[CommandExample(usage="python phase1.py ingest data/")],
         ),
     )
-    ok("CLICommandReference round-trips correctly",
-       f"params={len(cli.data.parameters)}  examples={len(cli.data.examples)}")
+    ok(
+        "CLICommandReference round-trips correctly",
+        f"params={len(cli.data.parameters)}  examples={len(cli.data.examples)}",
+    )
 
     # EscalationResolution
     esc = KnowledgeObject(
-        **base, id="s-esc-1", type="escalation_resolution",
+        **base,
+        id="s-esc-1",
+        type="escalation_resolution",
         data=EscalationResolution(
-            escalation_id="ESC-001", customer_impact="Search unavailable", severity="S1",
+            escalation_id="ESC-001",
+            customer_impact="Search unavailable",
+            severity="S1",
             timeline=[TimelineEvent(timestamp=now, action="reported", by="ops")],
             resolution=ResolutionDetail(summary="Restarted OS", steps_taken=["restart"]),
         ),
     )
-    ok("EscalationResolution round-trips correctly",
-       f"timeline_events={len(esc.data.timeline)}")
+    ok("EscalationResolution round-trips correctly", f"timeline_events={len(esc.data.timeline)}")
 
     # ConfigurationParameter
     cfg_obj = KnowledgeObject(
-        **base, id="s-cfg-1", type="configuration_parameter",
+        **base,
+        id="s-cfg-1",
+        type="configuration_parameter",
         data=ConfigurationParameter(
-            param="max_connections", scope="database",
-            value_type="int", default=100, recommended=200, unit="connections",
+            param="max_connections",
+            scope="database",
+            value_type="int",
+            default=100,
+            recommended=200,
+            unit="connections",
             description="Maximum simultaneous DB connections",
             versions=VersionInfo(introduced="1.0"),
         ),
     )
-    ok("ConfigurationParameter round-trips correctly",
-       f"param={cfg_obj.data.param}  default={cfg_obj.data.default}")
+    ok(
+        "ConfigurationParameter round-trips correctly",
+        f"param={cfg_obj.data.param}  default={cfg_obj.data.default}",
+    )
 
     # Validation: invalid severity must raise
     try:
-        RootCauseAnalysis(title="t", symptoms=[], severity="S9",  # invalid
-                          root_cause=RootCauseDetail(summary="x"),
-                          fix=FixDetail())
+        RootCauseAnalysis(
+            title="t",
+            symptoms=[],
+            severity="S9",  # invalid
+            root_cause=RootCauseDetail(summary="x"),
+            fix=FixDetail(),
+        )
         fail("KnowledgeObject rejects invalid severity (S9)", "should have raised")
     except Exception:
         ok("KnowledgeObject rejects invalid severity (S9)", "ValidationError raised correctly")
@@ -174,6 +204,7 @@ section("2. src/ingestion/pdf_intelligence.py — Page classifier + Docling")
 
 try:
     import fitz
+
     from src.ingestion.pdf_intelligence import PageResult, classify_page
 
     # classify_page — use the real RFC (no Docling needed, PyMuPDF only)
@@ -187,17 +218,21 @@ try:
         ptype = classify_page(page)
         text_len = len(page.get_text().strip())
         doc.close()
-        ok("classify_page on real RFC page",
-           f"page_type={ptype!r}  text_chars={text_len}  (expected 'native')")
+        ok(
+            "classify_page on real RFC page",
+            f"page_type={ptype!r}  text_chars={text_len}  (expected 'native')",
+        )
         assert ptype == "native", f"expected 'native', got {ptype!r}"
     else:
         skip("classify_page on real RFC", "rfc793_tcp.pdf not found")
 
     # PageResult field validation
-    pr = PageResult(page_num=1, text="hello world", page_type="native",
-                    extraction_status="success")
+    pr = PageResult(page_num=1, text="hello world", page_type="native", extraction_status="success")
     assert pr.text == "hello world" and pr.page_type == "native"
-    ok("PageResult model instantiates + validates", "page_num, text, page_type, extraction_status ✓")
+    ok(
+        "PageResult model instantiates + validates",
+        "page_num, text, page_type, extraction_status ✓",
+    )
 
     # Invalid page_num
     try:
@@ -215,6 +250,7 @@ if SKIP_DOCLING:
 else:
     try:
         from src.ingestion.pdf_intelligence import process_pdf
+
         dummy = Path("data/corpus/01_handbook.pdf")
         if dummy.exists():
             t0 = time.time()
@@ -226,9 +262,11 @@ else:
             assert first.text.strip(), "Expected non-empty text"
             assert first.page_type in ("native", "scanned")
             assert first.extraction_status in ("success", "partial_fallback", "failed", "skipped")
-            ok(f"process_pdf on 01_handbook.pdf",
-               f"{len(pages)} page(s)  page_type={first.page_type!r}  "
-               f"status={first.extraction_status!r}  chars={len(first.text)}  ({elapsed:.1f}s)")
+            ok(
+                "process_pdf on 01_handbook.pdf",
+                f"{len(pages)} page(s)  page_type={first.page_type!r}  "
+                f"status={first.extraction_status!r}  chars={len(first.text)}  ({elapsed:.1f}s)",
+            )
         else:
             skip("process_pdf", "01_handbook.pdf not found — run seed_test_data.py")
     except Exception as exc:
@@ -246,7 +284,10 @@ try:
 
     # Synthetic PageResults — instant, no I/O
     synthetic_pages = [
-        PageResult(page_num=1, page_type="native", text="""
+        PageResult(
+            page_num=1,
+            page_type="native",
+            text="""
 # Introduction to Networking
 
 TCP/IP is the foundational protocol suite for the internet.
@@ -263,8 +304,12 @@ The server responds with a SYN-ACK. The client completes with ACK.
 
 Every device on the internet has a unique IP address.
 IPv4 uses 32-bit addresses. IPv6 uses 128-bit addresses.
-"""),
-        PageResult(page_num=2, page_type="native", text="""
+""",
+        ),
+        PageResult(
+            page_num=2,
+            page_type="native",
+            text="""
 # HTTP Protocol
 
 HTTP/1.1 introduced persistent connections and chunked transfer encoding.
@@ -280,7 +325,8 @@ Conditional requests using If-None-Match reduce bandwidth usage.
 | Cache-Control | Primary caching directive |
 | ETag | Entity tag for cache validation |
 | Last-Modified | Date of last modification |
-"""),
+""",
+        ),
     ]
 
     chunks = chunk_pages(synthetic_pages, doc_id="test-doc-id")
@@ -304,22 +350,25 @@ Conditional requests using If-None-Match reduce bandwidth usage.
 
     # Token size constraint
     oversized = [c for c in chunks if estimate_tokens(c.content) > MAX_CHUNK_TOKENS]
-    ok("No chunk exceeds MAX_CHUNK_TOKENS (1500)",
-       f"max tokens in this run: {max((estimate_tokens(c.content) for c in chunks), default=0)}"
-       if chunks else "0 chunks",
-       ) if not oversized else fail(
-           "No chunk exceeds MAX_CHUNK_TOKENS",
-           f"{len(oversized)} oversized chunk(s)")
+    ok(
+        "No chunk exceeds MAX_CHUNK_TOKENS (1500)",
+        f"max tokens in this run: {max((estimate_tokens(c.content) for c in chunks), default=0)}"
+        if chunks
+        else "0 chunks",
+    ) if not oversized else fail(
+        "No chunk exceeds MAX_CHUNK_TOKENS", f"{len(oversized)} oversized chunk(s)"
+    )
 
     # Structural chunks should have is_structural=True and empty content
     structural = [c for c in chunks if c.is_structural]
-    ok(f"Structural chunks identified correctly",
-       f"{len(structural)} structural, {len(chunks) - len(structural)} content chunks")
+    ok(
+        "Structural chunks identified correctly",
+        f"{len(structural)} structural, {len(chunks) - len(structural)} content chunks",
+    )
 
     # check table detection
     table_chunks = [c for c in chunks if c.chunk_type == "table"]
-    ok(f"Table chunks detected",
-       f"{len(table_chunks)} table chunk(s) from markdown table in page 2")
+    ok("Table chunks detected", f"{len(table_chunks)} table chunk(s) from markdown table in page 2")
 
     # IDs are deterministic — re-running produces the same IDs
     chunks2 = chunk_pages(synthetic_pages, doc_id="test-doc-id")
@@ -345,8 +394,8 @@ try:
     # search() — queries already-indexed data (dummy PDFs via ingest_pdf)
     for query, expected_kw in [
         ("system administration handbook", "administration"),
-        ("TCP three-way handshake",        "handshake"),
-        ("HTTP caching headers",           "cache"),
+        ("TCP three-way handshake", "handshake"),
+        ("HTTP caching headers", "cache"),
     ]:
         results_bm = bm25.search(query, top_k=3)
         has_hits = len(results_bm) > 0
@@ -356,12 +405,13 @@ try:
             required_keys = {"chunk_id", "content", "score", "section_path", "doc_id"}
             missing = required_keys - set(hit.keys())
             if missing:
-                fail(f'BM25Store.search("{query}")',
-                     f"Result missing keys: {missing}")
+                fail(f'BM25Store.search("{query}")', f"Result missing keys: {missing}")
             else:
                 top_content = str(hit.get("content", ""))[:70]
-                ok(f'BM25Store.search("{query}")',
-                   f"score={hit['score']:.2f}  hits={len(results_bm)}  preview={top_content!r}")
+                ok(
+                    f'BM25Store.search("{query}")',
+                    f"score={hit['score']:.2f}  hits={len(results_bm)}  preview={top_content!r}",
+                )
         else:
             fail(f'BM25Store.search("{query}")', "0 hits returned")
 
@@ -381,6 +431,7 @@ try:
 
     # index_chunk() + delete_by_doc_id() round-trip
     from src.ingestion.chunker import ChunkResult
+
     test_chunk = ChunkResult(
         id="phase2-verify-tmp-chunk-001",
         title="Phase2VerifyUniqueSentinel Title",
@@ -396,10 +447,13 @@ try:
     # Confirm it's findable — use a query matching our unique term
     found = bm25.search("xyzzy_phase2verify_sentinel_unique", top_k=5)
     found_ids = [r["chunk_id"] for r in found]
-    assert "phase2-verify-tmp-chunk-001" in found_ids, \
+    assert "phase2-verify-tmp-chunk-001" in found_ids, (
         f"Indexed chunk not found in search — found_ids={found_ids}"
-    ok("BM25Store.index_chunk() then search() finds the chunk",
-       f"chunk_id=phase2-verify-tmp-chunk-001  hits={len(found)}")
+    )
+    ok(
+        "BM25Store.index_chunk() then search() finds the chunk",
+        f"chunk_id=phase2-verify-tmp-chunk-001  hits={len(found)}",
+    )
 
     # delete_by_doc_id removes it
     deleted = bm25.delete_by_doc_id("phase2-verify-tmp-doc")
@@ -427,17 +481,20 @@ try:
     from src.stores.structured_kb import StructuredKBStore
 
     with StructuredKBStore(verify_connection=False) as kb:
-
         # get_by_id — known seeded object
         rca = kb.get_by_id("verify-rca-001")
         if rca:
             assert rca["type"] == "root_cause_analysis"
             assert rca["id"] == "verify-rca-001"
-            ok("StructuredKBStore.get_by_id('verify-rca-001')",
-               f"type={rca['type']}  version={rca['version']}")
+            ok(
+                "StructuredKBStore.get_by_id('verify-rca-001')",
+                f"type={rca['type']}  version={rca['version']}",
+            )
         else:
-            fail("StructuredKBStore.get_by_id('verify-rca-001')",
-                 "Not found — run: python scripts/week2_verify.py --seed-kb first")
+            fail(
+                "StructuredKBStore.get_by_id('verify-rca-001')",
+                "Not found — run: python scripts/week2_verify.py --seed-kb first",
+            )
 
         # get_by_id — non-existent returns None
         missing = kb.get_by_id("does-not-exist-zzz")
@@ -447,8 +504,10 @@ try:
         # search_by_type
         rca_results = kb.search_by_type("root_cause_analysis", "OpenSearch")
         if rca_results:
-            ok("StructuredKBStore.search_by_type('root_cause_analysis', 'OpenSearch')",
-               f"{len(rca_results)} result(s)  score={rca_results[0].get('score', '?'):.4f}")
+            ok(
+                "StructuredKBStore.search_by_type('root_cause_analysis', 'OpenSearch')",
+                f"{len(rca_results)} result(s)  score={rca_results[0].get('score', '?'):.4f}",
+            )
         else:
             fail("StructuredKBStore.search_by_type", "0 results — seed data may be missing")
 
@@ -456,11 +515,15 @@ try:
         tagged = kb.search_by_tags(["verification"])
         if tagged:
             types_found = {r["type"] for r in tagged}
-            ok("StructuredKBStore.search_by_tags(['verification'])",
-               f"{len(tagged)} result(s)  types={types_found}")
+            ok(
+                "StructuredKBStore.search_by_tags(['verification'])",
+                f"{len(tagged)} result(s)  types={types_found}",
+            )
         else:
-            fail("StructuredKBStore.search_by_tags(['verification'])",
-                 "0 results — seed data may be missing")
+            fail(
+                "StructuredKBStore.search_by_tags(['verification'])",
+                "0 results — seed data may be missing",
+            )
 
         # search_by_type raises ValueError on empty query
         try:
@@ -486,9 +549,10 @@ except Exception as exc:
 section("6. src/stores/doc_store.py — DocStore: list / presigned URL")
 
 try:
-    from src.stores.doc_store import DocStore
     import psycopg
+
     from src.config.settings import get_settings
+    from src.stores.doc_store import DocStore
 
     ds = DocStore()
 
@@ -506,20 +570,22 @@ try:
     with psycopg.connect(conninfo) as conn:
         with conn.cursor() as cur:
             # doc_ids stored in MinIO come from ingest_pdf's doc_id
-            cur.execute(
-                "SELECT doc_id FROM document_metadata WHERE filename LIKE '0%.pdf' LIMIT 1"
-            )
+            cur.execute("SELECT doc_id FROM document_metadata WHERE filename LIKE '0%.pdf' LIMIT 1")
             row = cur.fetchone()
 
     if row and row[0] in doc_keys:
         doc_id = row[0]
         url = ds.get_pdf_url(doc_id, expiry_seconds=60)
         assert url.startswith("http"), f"URL must start with http, got: {url[:60]}"
-        ok("DocStore.get_pdf_url() returns a presigned URL",
-           f"doc_id={doc_id}  url_start={url[:55]}...")
+        ok(
+            "DocStore.get_pdf_url() returns a presigned URL",
+            f"doc_id={doc_id}  url_start={url[:55]}...",
+        )
     elif row:
-        ok("DocStore.list_docs() contains stored PDFs",
-           f"doc_id={row[0]} from metadata (skipping URL check — not in MinIO yet)")
+        ok(
+            "DocStore.list_docs() contains stored PDFs",
+            f"doc_id={row[0]} from metadata (skipping URL check — not in MinIO yet)",
+        )
     else:
         fail("DocStore.get_pdf_url()", "No matching doc_id found in document_metadata")
 
@@ -531,10 +597,11 @@ try:
         ok("DocStore.get_pdf_url('') raises ValueError")
 
     # Upload + list round-trip with a temp PDF
-    import shutil, tempfile
+    import tempfile
+
     from reportlab.lib.pagesizes import letter
-    from reportlab.platypus import SimpleDocTemplate, Paragraph
     from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_pdf = Path(tmpdir) / "phase2_verify_tmp.pdf"
@@ -544,12 +611,19 @@ try:
         assert key == "phase2-verify-tmp-upload"
         keys_after = ds.list_docs()
         assert "phase2-verify-tmp-upload" in keys_after
-        ok("DocStore.upload_pdf() + list_docs() round-trip",
-           f"uploaded 'phase2-verify-tmp-upload', found in list of {len(keys_after)}")
+        ok(
+            "DocStore.upload_pdf() + list_docs() round-trip",
+            f"uploaded 'phase2-verify-tmp-upload', found in list of {len(keys_after)}",
+        )
         # Clean up
         from minio import Minio
-        mc = Minio(s.minio_endpoint, access_key=s.minio_access_key,
-                   secret_key=s.minio_secret_key, secure=False)
+
+        mc = Minio(
+            s.minio_endpoint,
+            access_key=s.minio_access_key,
+            secret_key=s.minio_secret_key,
+            secure=False,
+        )
         mc.remove_object(s.minio_bucket, "phase2-verify-tmp-upload")
 
 except Exception as exc:
@@ -563,6 +637,7 @@ section("7. src/ingestion/index_builder.py — Orchestrator: IngestResult stats"
 
 try:
     import psycopg
+
     from src.config.settings import get_settings
     from src.ingestion.index_builder import IngestResult
 
@@ -583,12 +658,19 @@ try:
 
     # Check IngestResult schema is importable and has expected fields
     required_fields = {
-        "doc_id", "filename", "page_count", "chunk_count",
-        "structured_kb_count", "table_chunk_count", "indexed_chunk_count",
-        "uploaded_pdf_key", "status", "warnings",
+        "doc_id",
+        "filename",
+        "page_count",
+        "chunk_count",
+        "structured_kb_count",
+        "table_chunk_count",
+        "indexed_chunk_count",
+        "uploaded_pdf_key",
+        "status",
+        "warnings",
     }
-    from dataclasses import fields as dc_fields
     import inspect
+
     hints = inspect.get_annotations(IngestResult, eval_str=True)
     missing_fields = required_fields - set(hints.keys())
     if missing_fields:
@@ -600,22 +682,27 @@ try:
     ok(f"document_metadata contains {len(rows)} ingested documents")
 
     # Check real RFC docs
-    rfc_docs = [(doc_id, fn, pages, chunks) for doc_id, fn, pages, chunks in rows
-                if fn.startswith("rfc")]
-    dummy_docs = [(doc_id, fn, pages, chunks) for doc_id, fn, pages, chunks in rows
-                  if not fn.startswith("rfc")]
+    rfc_docs = [
+        (doc_id, fn, pages, chunks) for doc_id, fn, pages, chunks in rows if fn.startswith("rfc")
+    ]
+    dummy_docs = [
+        (doc_id, fn, pages, chunks)
+        for doc_id, fn, pages, chunks in rows
+        if not fn.startswith("rfc")
+    ]
 
     for doc_id, fn, pages, chunks in rfc_docs[:3]:
         good = (pages or 0) > 0 and (chunks or 0) > 0
-        ok(f"RFC doc '{fn}' has non-zero stats",
-           f"pages={pages}  chunks={chunks}  doc_id={doc_id}") if good else \
-        fail(f"RFC doc '{fn}' has zero stats", f"pages={pages}  chunks={chunks}")
+        ok(
+            f"RFC doc '{fn}' has non-zero stats", f"pages={pages}  chunks={chunks}  doc_id={doc_id}"
+        ) if good else fail(f"RFC doc '{fn}' has zero stats", f"pages={pages}  chunks={chunks}")
 
     for doc_id, fn, pages, chunks in dummy_docs[:3]:
         good = (pages or 0) > 0 and (chunks or 0) > 0
-        ok(f"Dummy doc '{fn}' has non-zero stats",
-           f"pages={pages}  chunks={chunks}  doc_id={doc_id}") if good else \
-        fail(f"Dummy doc '{fn}' has zero stats", f"pages={pages}  chunks={chunks}")
+        ok(
+            f"Dummy doc '{fn}' has non-zero stats",
+            f"pages={pages}  chunks={chunks}  doc_id={doc_id}",
+        ) if good else fail(f"Dummy doc '{fn}' has zero stats", f"pages={pages}  chunks={chunks}")
 
     if not rfc_docs and not dummy_docs:
         fail("document_metadata has no rows", "run ingest_pdf on some PDFs first")
@@ -634,17 +721,17 @@ try:
 
     CASES: list[tuple[str, str]] = [
         # filename pattern         → expected priority
-        ("defect_report_q1.pdf",   "P0"),
-        ("rca_root_cause.pdf",     "P0"),
-        ("cli_reference.pdf",      "P1"),
-        ("config_parameters.pdf",  "P1"),
-        ("system_handbook.pdf",    "P2"),
-        ("rfc793_tcp.pdf",         "P3"),
-        ("weekly_summary.pdf",     "P3"),
+        ("defect_report_q1.pdf", "P0"),
+        ("rca_root_cause.pdf", "P0"),
+        ("cli_reference.pdf", "P1"),
+        ("config_parameters.pdf", "P1"),
+        ("system_handbook.pdf", "P2"),
+        ("rfc793_tcp.pdf", "P3"),
+        ("weekly_summary.pdf", "P3"),
         # Case-insensitive
-        ("DEFECT_REPORT.pdf",      "P0"),
-        ("CLI_Reference.pdf",      "P1"),
-        ("System_Handbook.pdf",    "P2"),
+        ("DEFECT_REPORT.pdf", "P0"),
+        ("CLI_Reference.pdf", "P1"),
+        ("System_Handbook.pdf", "P2"),
     ]
 
     all_ok = True
@@ -653,27 +740,27 @@ try:
         if label == expected:
             pass  # accumulate, print at end
         else:
-            fail(f"classify_priority('{filename}')",
-                 f"expected {expected}, got {label}")
+            fail(f"classify_priority('{filename}')", f"expected {expected}, got {label}")
             all_ok = False
 
     if all_ok:
-        ok(f"classify_priority: all {len(CASES)} filename patterns correct",
-           "P0=defect/rca  P1=cli/config  P2=handbook  P3=other (case-insensitive)")
+        ok(
+            f"classify_priority: all {len(CASES)} filename patterns correct",
+            "P0=defect/rca  P1=cli/config  P2=handbook  P3=other (case-insensitive)",
+        )
 
     # Verify return type is (str, int)
     label, num = classify_priority(Path("defect.pdf"))
-    assert isinstance(label, str) and isinstance(num, int), \
+    assert isinstance(label, str) and isinstance(num, int), (
         f"Expected (str, int), got ({type(label)}, {type(num)})"
-    ok("classify_priority returns (str_label, int_rank)",
-       f"e.g. defect.pdf → ({label!r}, {num})")
+    )
+    ok("classify_priority returns (str_label, int_rank)", f"e.g. defect.pdf → ({label!r}, {num})")
 
     # Lower rank number = higher priority
     _, p0_rank = classify_priority(Path("defect.pdf"))
     _, p3_rank = classify_priority(Path("other.pdf"))
     assert p0_rank < p3_rank, "P0 rank must be numerically lower than P3"
-    ok("P0 rank < P3 rank (lower number = higher priority)",
-       f"P0={p0_rank}  P3={p3_rank}")
+    ok("P0 rank < P3 rank (lower number = higher priority)", f"P0={p0_rank}  P3={p3_rank}")
 
 except Exception as exc:
     fail("watcher.py classify_priority", str(exc))
@@ -687,9 +774,9 @@ print("  Phase 2 Verification Summary")
 print(f"{'═' * 62}")
 
 passes = sum(1 for _, s, _ in results if s == PASS_LABEL)
-fails  = sum(1 for _, s, _ in results if s == FAIL_LABEL)
-skips  = sum(1 for _, s, _ in results if s == SKIP_LABEL)
-total  = len(results)
+fails = sum(1 for _, s, _ in results if s == FAIL_LABEL)
+skips = sum(1 for _, s, _ in results if s == SKIP_LABEL)
+total = len(results)
 
 for label, status, detail in results:
     icon = {"PASS": "✅", "FAIL": "❌", "SKIP": "⏭️ "}.get(status, "?")

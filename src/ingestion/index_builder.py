@@ -14,7 +14,7 @@ This module coordinates the full PDF ingestion flow:
 
 import hashlib
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 import psycopg
@@ -264,7 +264,7 @@ def build_cli_command_object_from_table(
     content = chunk.content or ""
 
     # Extract first non-empty line as potential command
-    lines = [l.strip() for l in content.split("\n") if l.strip()]
+    lines = [line.strip() for line in content.split("\n") if line.strip()]
     command = lines[0] if lines else "unknown"
 
     # Derive tags from content
@@ -326,8 +326,7 @@ def _upsert_document_metadata(
     cfg = settings.database
 
     conninfo = (
-        f"host={cfg.host} port={cfg.port} user={cfg.user} "
-        f"password={cfg.password} dbname={cfg.db}"
+        f"host={cfg.host} port={cfg.port} user={cfg.user} password={cfg.password} dbname={cfg.db}"
     )
 
     try:
@@ -545,7 +544,9 @@ def ingest_pdf(pdf_path: str | Path) -> IngestResult:
                         structured_kb_count += 1
                         logger.debug("Inserted root_cause_analysis for chunk %s", chunk.id)
                     except Exception as e:
-                        warning_msg = f"Failed to insert root_cause_analysis for chunk {chunk.id}: {e}"
+                        warning_msg = (
+                            f"Failed to insert root_cause_analysis for chunk {chunk.id}: {e}"
+                        )
                         logger.warning(warning_msg)
                         warnings.append(warning_msg)
                         had_index_errors = True
@@ -557,7 +558,9 @@ def ingest_pdf(pdf_path: str | Path) -> IngestResult:
                         structured_kb_count += 1
                         logger.debug("Inserted cli_command_reference for chunk %s", chunk.id)
                     except Exception as e:
-                        warning_msg = f"Failed to insert cli_command_reference for chunk {chunk.id}: {e}"
+                        warning_msg = (
+                            f"Failed to insert cli_command_reference for chunk {chunk.id}: {e}"
+                        )
                         logger.warning(warning_msg)
                         warnings.append(warning_msg)
                         had_index_errors = True
@@ -632,4 +635,3 @@ def ingest_pdf(pdf_path: str | Path) -> IngestResult:
         status=status,
         warnings=warnings,
     )
-

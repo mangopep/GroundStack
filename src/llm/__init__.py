@@ -22,4 +22,3 @@ __all__ = [
     "CostTracker",
     "get_cost_tracker",
 ]
-

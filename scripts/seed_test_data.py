@@ -60,11 +60,15 @@ def create_table_doc(output_path):
         ["embedding_model", "str", "bge-base", "Embedding model"],
     ]
     t = Table(data, colWidths=[1.5 * inch, 0.8 * inch, 0.8 * inch, 2.2 * inch])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
+    t.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ]
+        )
+    )
     story.append(t)
     doc.build(story)
     print(f"Created: {output_path.name}")
@@ -74,7 +78,7 @@ def create_cli_output_doc(output_path):
     """Create a document with CLI output."""
     doc = SimpleDocTemplate(str(output_path), pagesize=letter)
     styles = getSampleStyleSheet()
-    mono_style = ParagraphStyle('Mono', parent=styles['Normal'], fontName='Courier', fontSize=9)
+    mono_style = ParagraphStyle("Mono", parent=styles["Normal"], fontName="Courier", fontSize=9)
     story = []
 
     story.append(Paragraph("CLI Command Reference", styles["Title"]))
@@ -103,11 +107,15 @@ def create_multicolumn_doc(output_path):
         ["Storage", "MinIO (S3)"],
     ]
     t = Table(data, colWidths=[2.5 * inch, 2.5 * inch])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-    ]))
+    t.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.darkgreen),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+            ]
+        )
+    )
     story.append(t)
     doc.build(story)
     print(f"Created: {output_path.name}")
@@ -158,13 +166,17 @@ def create_rca_and_cli_doc(output_path):
         ["LangFuse traces missing", "SDK/server version mismatch", "Pin langfuse>=2,<3", "Low"],
     ]
     rca_table = Table(rca_data, colWidths=[1.5 * inch, 1.7 * inch, 1.7 * inch, 0.9 * inch])
-    rca_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.darkred),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    rca_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.darkred),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
     story.append(rca_table)
     story.append(Spacer(1, 0.3 * inch))
 
@@ -173,18 +185,27 @@ def create_rca_and_cli_doc(output_path):
     story.append(Spacer(1, 0.1 * inch))
     cli_data = [
         ["Command", "Syntax", "Parameter", "Example"],
-        ["ingest", "python phase1.py ingest <file>", "--path PATH", "python phase1.py ingest data/"],
+        [
+            "ingest",
+            "python phase1.py ingest <file>",
+            "--path PATH",
+            "python phase1.py ingest data/",
+        ],
         ["search", "python test_search.py <query>", "--top-k N", "python test_search.py 'TCP'"],
         ["reindex", "python reindex_all.py", "--force", "python reindex_all.py --force"],
     ]
     cli_table = Table(cli_data, colWidths=[0.8 * inch, 2.0 * inch, 1.2 * inch, 1.8 * inch])
-    cli_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-    ]))
+    cli_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
     story.append(cli_table)
     doc.build(story)
     print(f"Created: {output_path.name}")

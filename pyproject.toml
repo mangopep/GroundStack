@@ -39,16 +39,12 @@ dependencies = [
     # Chat UI
     "chainlit",
     
-    # Evaluation
-    "ragas",
-    
     # Testing
     "pytest",
 ]
 
 [project.optional-dependencies]
-dev = ["ruff>=0.6", "mypy>=1.11", "pytest-cov>=5"]
-evaluation = ["ragas"]
+dev = ["ruff>=0.6", "mypy>=1.11", "pytest-cov>=5", "pip-audit>=2.10,<3"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

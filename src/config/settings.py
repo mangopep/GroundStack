@@ -98,10 +98,7 @@ class Settings(BaseSettings):
     """
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
     # Database
@@ -152,25 +149,20 @@ class Settings(BaseSettings):
             port=self.postgres_port,
             user=self.postgres_user,
             password=self.postgres_password,
-            db=self.postgres_db
+            db=self.postgres_db,
         )
 
     @property
     def opensearch(self) -> OpenSearchConfig:
         """Return OpenSearchConfig instance."""
         return OpenSearchConfig(
-            host=self.opensearch_host,
-            port=self.opensearch_port,
-            index=self.opensearch_index
+            host=self.opensearch_host, port=self.opensearch_port, index=self.opensearch_index
         )
 
     @property
     def redis(self) -> RedisConfig:
         """Return RedisConfig instance."""
-        return RedisConfig(
-            host=self.redis_host,
-            port=self.redis_port
-        )
+        return RedisConfig(host=self.redis_host, port=self.redis_port)
 
     @property
     def minio(self) -> MinIOConfig:
@@ -179,16 +171,13 @@ class Settings(BaseSettings):
             endpoint=self.minio_endpoint,
             access_key=self.minio_access_key,
             secret_key=self.minio_secret_key,
-            bucket=self.minio_bucket
+            bucket=self.minio_bucket,
         )
 
     @property
     def ollama(self) -> OllamaConfig:
         """Return OllamaConfig instance."""
-        return OllamaConfig(
-            host=self.ollama_host,
-            model=self.ollama_model
-        )
+        return OllamaConfig(host=self.ollama_host, model=self.ollama_model)
 
     @property
     def langfuse(self) -> LangFuseConfig:
@@ -196,7 +185,7 @@ class Settings(BaseSettings):
         return LangFuseConfig(
             host=self.langfuse_host,
             public_key=self.langfuse_public_key,
-            secret_key=self.langfuse_secret_key
+            secret_key=self.langfuse_secret_key,
         )
 
     @property
@@ -205,7 +194,7 @@ class Settings(BaseSettings):
         return AppConfig(
             api_key=self.api_key,
             log_level=self.log_level,
-            reranker_threshold=self.reranker_threshold
+            reranker_threshold=self.reranker_threshold,
         )
 
 
@@ -232,4 +221,3 @@ def get_settings() -> Settings:
         'postgresql://rag:@localhost:5432/rag_platform'
     """
     return Settings()
-

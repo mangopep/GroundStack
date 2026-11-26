@@ -30,11 +30,14 @@ class TestBM25Store:
     @patch("src.stores.bm25.OpenSearch")
     def test_init_reads_env_vars(self, mock_opensearch):
         """Test initialization reads from environment variables."""
-        with patch.dict("os.environ", {
-            "OPENSEARCH_HOST": "192.168.1.1",
-            "OPENSEARCH_PORT": "9201",
-            "OPENSEARCH_INDEX": "my_index"
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "OPENSEARCH_HOST": "192.168.1.1",
+                "OPENSEARCH_PORT": "9201",
+                "OPENSEARCH_INDEX": "my_index",
+            },
+        ):
             store = BM25Store(verify_connection=False)
 
             assert store._host == "192.168.1.1"
@@ -48,7 +51,7 @@ class TestBM25Store:
         mock_client.ping.return_value = True
         mock_opensearch.return_value = mock_client
 
-        store = BM25Store(verify_connection=True)
+        BM25Store(verify_connection=True)
 
         mock_client.ping.assert_called_once()
 
@@ -103,12 +106,7 @@ class TestBM25Store:
             section_path: str | None = None
             page_numbers: list[int] | None = None
 
-        chunk = ChunkModel(
-            id="chunk1",
-            doc_id="doc1",
-            title="Test",
-            content="Content"
-        )
+        chunk = ChunkModel(id="chunk1", doc_id="doc1", title="Test", content="Content")
 
         doc = store._chunk_to_document(chunk)
 
@@ -158,8 +156,8 @@ class TestBM25Store:
                 "section_path": "Chapter 1",
                 "page_numbers": [5],
                 "doc_id": "doc1",
-                "chunk_type": "section"
-            }
+                "chunk_type": "section",
+            },
         }
 
         result = store._format_search_hit(hit)
@@ -177,14 +175,7 @@ class TestBM25Store:
         """Test formatting search hit when page_numbers is missing."""
         store = BM25Store(verify_connection=False)
 
-        hit = {
-            "_score": 1.0,
-            "_source": {
-                "id": "abc",
-                "content": "content",
-                "doc_id": "doc"
-            }
-        }
+        hit = {"_score": 1.0, "_source": {"id": "abc", "content": "content", "doc_id": "doc"}}
 
         result = store._format_search_hit(hit)
 
@@ -196,12 +187,7 @@ class TestBM25Store:
 
         hit = {
             "_score": 1.0,
-            "_source": {
-                "id": "abc",
-                "content": "content",
-                "doc_id": "doc",
-                "page_numbers": []
-            }
+            "_source": {"id": "abc", "content": "content", "doc_id": "doc", "page_numbers": []},
         }
 
         result = store._format_search_hit(hit)
@@ -224,7 +210,7 @@ class TestBM25Store:
             "section_path": "Ch1",
             "page_numbers": [1],
             "chunk_type": "section",
-            "is_structural": False
+            "is_structural": False,
         }
 
         store.index_chunk(chunk)
@@ -289,8 +275,8 @@ class TestBM25Store:
                             "section_path": "Ch1",
                             "page_numbers": [1],
                             "doc_id": "doc1",
-                            "chunk_type": "section"
-                        }
+                            "chunk_type": "section",
+                        },
                     }
                 ]
             }
@@ -377,4 +363,3 @@ class TestBM25Store:
 
         with pytest.raises(ValueError, match="doc_id cannot be empty"):
             store.delete_by_doc_id("   ")
-

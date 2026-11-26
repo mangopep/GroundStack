@@ -28,10 +28,9 @@ Run with:
 """
 
 import asyncio
-import os
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -75,7 +74,9 @@ def _make_result(doc_id: str = "doc-abc", page_count: int = 3, chunk_count: int 
     return SimpleNamespace(doc_id=doc_id, page_count=page_count, chunk_count=chunk_count)
 
 
-def _make_worker(tmp_path: Path, queue: TaskQueue | None = None, max_attempts: int = 3) -> IngestWorker:
+def _make_worker(
+    tmp_path: Path, queue: TaskQueue | None = None, max_attempts: int = 3
+) -> IngestWorker:
     """Return an IngestWorker that writes under tmp_path."""
     return IngestWorker(
         queue=queue,
@@ -321,7 +322,7 @@ class TestRunIngestWithRetries:
         result = _make_result()
 
         with patch(f"{MODULE}.asyncio.to_thread", AsyncMock(return_value=result)):
-            with patch(f"src.ingestion.index_builder.ingest_pdf"):
+            with patch("src.ingestion.index_builder.ingest_pdf"):
                 # to_thread is patched directly so the import inside the loop
                 # doesn't matter — patch it at the asyncio level
                 actual = await worker._run_ingest_with_retries(Path("/tmp/a.pdf"), {})
@@ -700,7 +701,7 @@ class TestNotifyFreshnessInvalidator:
 
 class TestInit:
     def test_creates_failed_and_processed_dirs(self, tmp_path):
-        worker = _make_worker(tmp_path)
+        _make_worker(tmp_path)
         assert (tmp_path / "failed").is_dir()
         assert (tmp_path / "processed").is_dir()
 
