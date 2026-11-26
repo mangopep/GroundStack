@@ -1,295 +1,149 @@
-# RAG Platform - Week 1 Foundation
+# GroundStack
 
-Production-grade RAG (Retrieval-Augmented Generation) platform with knowledge graph, vector search, and LLM integration.
+[![CI](https://github.com/mangopep/rag_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/mangopep/rag_platform/actions/workflows/ci.yml)
 
-## 🚀 Quick Start
+**Open-source infrastructure for evidence-grounded intelligence.**
 
-### Prerequisites
-- Docker Desktop (running)
-- Python 3.11+
-- Ollama ([install](https://ollama.ai))
+GroundStack is an early-stage Python repository for document parsing, chunking, indexing, and retrieval experiments. It aims to make source evidence, provenance, and operational limits visible in knowledge systems.
 
-### One-Command Startup
+> **Status: experimental / not production-ready.** This repository has meaningful PDF ingestion, chunking, object-store and search-store code, plus unit and integration tests. The API currently exposes only a basic root and health response. End-to-end retrieval and answer generation are not wired into it. Authentication, tenant isolation, claim-level verification, backup/restore, and production deployment are not implemented. See the [implementation status](docs/architecture/overview.md#implementation-status).
+
+## Why GroundStack
+
+RAG systems often return fluent text without making it easy to inspect which source passage supports a claim, what was omitted, or how a document reached the index. GroundStack's design goal is an inspectable pipeline: retain source identity and page metadata, make retrieval steps replaceable, and evaluate retrieval and citations separately from generation.
+
+Principles:
+
+- **Evidence before fluency:** generated answers should be traceable to retrieved source passages.
+- **Explicit implementation status:** proposed components are not presented as working features.
+- **Local-first by default:** documents should remain in the operator's environment unless they choose an external provider.
+- **Replaceable boundaries:** storage, embedding, parser, and model integrations should have narrow interfaces.
+- **Measured claims:** publish benchmark results only with corpus, hardware, configuration, and reproducible commands.
+
+## Current capabilities
+
+| Capability | Status |
+|---|---|
+| PDF parsing / document intelligence | Implemented code in `src/ingestion`; requires dependency and integration verification |
+| Hierarchy-aware chunking and code detection | Implemented; covered by unit tests |
+| OpenSearch indexing / BM25 store | Implemented code; requires a running OpenSearch service for integration |
+| MinIO document store | Implemented code; integration tests require MinIO |
+| PostgreSQL structured knowledge store | Implemented code; service-backed tests require PostgreSQL |
+| Background task queue and ingestion worker | Implemented code; persistence and recovery need deployment-level validation |
+| Vector embeddings and vector retrieval | Placeholder modules; no complete wired path |
+| Query-to-answer API | Not implemented; API routes are empty |
+| Knowledge graph extraction and resolution | Not implemented as an end-to-end pipeline |
+| Auth, tenant isolation, rate limiting | Not implemented |
+| UI | Static responsive preview implemented; ingestion/query controls are not connected |
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+  Files[PDF files] --> Parse[Docling and PDF intelligence]
+  Parse --> Chunk[Hierarchy-aware chunking]
+  Chunk --> Gate[Quality gate and deduplication]
+  Gate --> Worker[Ingestion worker and queue]
+  Worker --> Search[(OpenSearch BM25/index)]
+  Worker --> Objects[(MinIO object storage)]
+  Worker --> SQL[(PostgreSQL structured data)]
+  Q[Query API: proposed] -. not wired .-> Search
+  Q -. future .-> Embed[Embedding provider]
+  Q -. future .-> Verify[Evidence verification]
+```
+
+The diagram's solid path describes code present in the repository; dashed edges are proposed. More detail is in [architecture overview](docs/architecture/overview.md), [ingestion](docs/architecture/ingestion.md), and [retrieval](docs/architecture/retrieval.md).
+
+## Getting started
+
+### Requirements
+
+- Python 3.11 or newer
+- Docker Compose v2 for service-backed integration
+- macOS or Linux (Windows via WSL2 is not yet validated)
+- Disk/RAM requirements depend heavily on Docling and OCR dependencies; an 8 GB profile has not been validated
+
+### Install Python dependencies
+
+The current dependency set includes heavyweight document/OCR and evaluation packages. Installation size and time can be significant.
+
 ```bash
-./scripts/startup.sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
 ```
 
-This script will:
-1. ✅ Check all prerequisites
-2. ✅ Start Ollama server
-3. ✅ Pull llama3.3:8b model
-4. ✅ Start all Docker services
-5. ✅ Initialize OpenSearch index
-6. ✅ Create MinIO buckets
-7. ✅ Verify PostgreSQL tables
+### Start the development services
 
----
+Compose currently starts PostgreSQL/AGE, OpenSearch, Redis, MinIO, and Langfuse. It is a development topology, not production-hardened. Review configuration and supply unique credentials before starting:
 
-## 🏗️ Architecture
-
-### Services (Docker Compose)
-| Service | Port | Description |
-|---------|------|-------------|
-| **PostgreSQL + Apache AGE** | 5432 | Graph database with vector extension |
-| **OpenSearch** | 9200 | Full-text search and BM25 retrieval |
-| **Redis** | 6379 | Caching and session storage |
-| **MinIO** | 9000/9001 | Object storage for PDFs and images |
-| **LangFuse** | 3000 | LLM observability and tracing |
-| **Ollama** | 11434 | Local LLM inference (llama3.3:8b) |
-
-### Database Schema
-- `structured_kb` - Structured knowledge (RCA, CLI commands, configs)
-- `human_overrides` - User corrections and feedback
-- `document_metadata` - Ingested document tracking
-- `config` - System configuration
-- `user_feedback` - Query ratings and corrections
-- `rag_knowledge` - Apache AGE graph for relationships
-
----
-
-## 📁 Project Structure
-
-```
-rag-platform/
-├── docker-compose.yml          # 5 services: PostgreSQL, OpenSearch, Redis, MinIO, LangFuse
-├── .env                        # Environment configuration
-├── pyproject.toml              # Python dependencies
-├── Makefile                    # Common commands
-│
-├── data/
-│   ├── corpus/                 # 📥 DROP PDFs HERE for ingestion
-│   ├── test/                   # Test PDFs
-│   ├── processed/              # Successfully processed files
-│   ├── failed/                 # Files that failed quality gate
-│   └── backups/                # Database backups
-│
-├── scripts/
-│   ├── startup.sh              # 🚀 One-command startup
-│   ├── init_db.sql             # PostgreSQL schema
-│   ├── init_opensearch.py      # Create OpenSearch index
-│   ├── init_minio.py           # Create MinIO buckets
-│   └── seed_test_data.py       # Generate 5 sample PDFs
-│
-├── src/
-│   ├── config/                 # Centralized settings (Pydantic)
-│   ├── llm/                    # LLM client + cost tracker
-│   ├── ingestion/              # Document parsing (Docling)
-│   ├── retrieval/              # Hybrid retrieval (vector + BM25)
-│   ├── query/                  # Query rewriting + routing
-│   ├── answer/                 # Answer generation + verification
-│   ├── stores/                 # Data stores (vector, KB, graph)
-│   └── api/                    # FastAPI endpoints
-│
-└── tests/                      # Pytest tests
-```
-
----
-
-## 🛠️ Common Commands
-
-### Service Management
 ```bash
-make dev          # Start all services
-make stop         # Stop all services
-make reset        # Stop and remove all data volumes
-make init         # Initialize OpenSearch + MinIO
+test -f .env || cp .env.example .env
+# Replace the sample values with unique random credentials before starting.
+docker compose up -d
 ```
 
-### Development
+See [configuration](docs/guides/configuration.md), [development guide](docs/guides/local-development.md), and [deployment status](docs/architecture/deployment.md). There is no verified one-command end-to-end demo yet; avoid putting private documents into this experimental stack.
+
+## Ingestion code entry points
+
+A folder watcher and ingestion worker are present. Their actual service integrations need to be configured and verified against a live stack. See [document ingestion](docs/guides/document-ingestion.md) before using them. Do not treat a successful parser run as evidence that indexing, retrieval, or answering works end to end.
+
+## API
+
+The current API can be started with:
+
 ```bash
-make app          # Start FastAPI server (port 8000)
-make test         # Run pytest tests
-make ingest       # Start document watcher on data/corpus/
-make backup       # Backup PostgreSQL database
+uvicorn src.api.main:app --reload --port 8000
 ```
 
-### Code Quality
+`GET /` returns a running message and `GET /health` returns a basic process response. These are not dependency readiness checks. There are no implemented ingest or query routes yet. See [API reference](docs/api/reference.md).
+
+## Workspace interface
+
+An early responsive workspace preview is available at `http://localhost:8000/workspace/` when the API server is running. It uses a consistent custom line-icon system and responsive layouts. The interface clearly labels unavailable capabilities; document upload and querying are not connected because their API flows are not implemented. It makes no claims about indexed documents or answer quality.
+
+## Testing and evaluation
+
 ```bash
-make format       # Format code with ruff
-make lint         # Lint code with ruff
-pre-commit run --all-files  # Run all pre-commit hooks
+pytest
 ```
 
----
+Unit tests cover chunking, stores, worker, queue, and watcher logic. Integration tests need their backing services and fixtures. In this environment no test runner was installed in the checked-in `.venv`, so test results are **NOT TESTED**. Benchmark methodology and unmeasured metrics are documented in [evaluation methodology](docs/evaluation/methodology.md) and [benchmarks](docs/evaluation/benchmarks.md).
 
-## 📊 Verify Services
+## Repository layout
 
-### Check Docker Status
-```bash
-docker compose ps
+```text
+src/        application modules
+scripts/    service initialization, ingestion, verification, and maintenance commands
+tests/      unit, integration, and evaluation harnesses
+docs/       architecture, operating guides, API, and evaluation notes
+data/       empty tracked directories; do not commit user documents or generated indexes
 ```
 
-Expected output:
-```
-NAME              STATUS              PORTS
-rag-postgres      Up (healthy)        5432
-rag-opensearch    Up (healthy)        9200
-rag-redis         Up (healthy)        6379
-rag-minio         Up (healthy)        9000, 9001
-rag-langfuse      Up                  3000
-```
+## Security and privacy
 
-### Test Connections
-```bash
-# PostgreSQL
-docker exec -it rag-postgres psql -U rag -d rag_platform -c "\dt"
+No production security guarantees are currently provided. Compose now requires secrets from `.env`, OpenSearch security is disabled, and the API has no authentication or document authorization. The application does not intentionally upload documents through the API, but optional model/telemetry integrations can involve network traffic when enabled. Do not expose the stack to untrusted networks or ingest sensitive data until the [security guide](docs/architecture/security.md) requirements are implemented and reviewed.
 
-# OpenSearch
-curl http://localhost:9200/_cluster/health
+Report vulnerabilities privately using the process in [SECURITY.md](SECURITY.md).
 
-# Redis
-docker exec -it rag-redis redis-cli ping
+## Contributing
 
-# MinIO
-curl http://localhost:9000/minio/health/live
+Contributions are welcome, especially focused fixes to ingestion correctness, reproducible tests, and clear documentation. Read [CONTRIBUTING.md](CONTRIBUTING.md), [Code of Conduct](CODE_OF_CONDUCT.md), and the ADRs before proposing architectural dependencies.
 
-# Ollama
-curl http://localhost:11434/api/tags
-```
+## Roadmap
 
----
+See [ROADMAP.md](ROADMAP.md) for prioritized work and [CHANGELOG.md](CHANGELOG.md) for repository changes.
 
-## 🔑 Setup LangFuse (Optional)
+## Name availability note
 
-LangFuse provides observability for LLM calls. If you skip this, the system will work without tracing.
+A preliminary public search found existing GitHub repositories named [aashish-b/groundstack](https://github.com/aashish-b/groundstack) and [orbital-state/groundstack](https://github.com/orbital-state/groundstack), among others. PyPI and npm exact package lookups returned 404 on 2026-11-26. This does **not** establish trademark clearance or GitHub organization/repository-name availability. The project name should be treated as provisional pending a proper trademark and namespace review. No repository rename or publication was performed.
 
-1. Open http://localhost:3000
-2. Create account
-3. Create project "RAG Platform"
-4. Copy **Public Key** and **Secret Key**
-5. Update `.env`:
-   ```bash
-   LANGFUSE_PUBLIC_KEY=pk-lf-...
-   LANGFUSE_SECRET_KEY=sk-lf-...
-   ```
-6. Restart services: `make stop && make dev`
+## License
 
----
+This project is licensed under the MIT License; see [LICENSE](LICENSE).
 
-## 📄 Test Ingestion
+## Acknowledgements
 
-### Option 1: Use Sample PDFs
-```bash
-python scripts/seed_test_data.py
-```
-
-This creates 5 sample PDFs:
-- `01_handbook.pdf` - Handbook with headings
-- `02_tables.pdf` - Document with tables
-- `03_cli_commands.pdf` - CLI commands reference
-- `04_multicolumn.pdf` - Multi-column layout
-- `05_scanned_reference.pdf` - Simulated scanned document
-
-### Option 2: Drop Your Own PDFs
-```bash
-cp /path/to/your.pdf data/corpus/
-python -m src.ingestion.watcher --path data/corpus/
-```
-
-The ingestion pipeline will:
-1. Parse PDF with Docling
-2. Extract chunks with hierarchy
-3. Detect CLI commands and code blocks
-4. Run quality gate checks
-5. Store chunks in OpenSearch
-6. Extract structured knowledge to PostgreSQL
-7. Build graph relationships in Apache AGE
-
----
-
-## 🔧 Configuration
-
-All configuration is in [.env](.env). Key settings:
-
-### Database
-```bash
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_USER=rag
-POSTGRES_PASSWORD=rag_dev_2026
-POSTGRES_DB=rag_platform
-```
-
-### LLM
-```bash
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=llama3.3:8b
-```
-
-### Retrieval
-```bash
-RERANKER_THRESHOLD=0.7          # Minimum reranker score
-```
-
----
-
-## 🧪 Testing
-
-### Run All Tests
-```bash
-make test
-```
-
-### Run Specific Test
-```bash
-pytest tests/test_ingestion.py -v
-pytest tests/test_retrieval.py::test_hybrid_search -v
-```
-
----
-
-## 📝 Next Steps (Week 2+)
-
-- [ ] Implement query rewriter
-- [ ] Add query router (vector vs KB vs graph)
-- [ ] Build context assembler
-- [ ] Add reranking with FlashRank
-- [ ] Implement answer generator
-- [ ] Add answer verifier
-- [ ] Build Chainlit UI
-- [ ] Add RAGAS evaluation
-- [ ] Implement human-in-the-loop overrides
-
----
-
-## 🐛 Troubleshooting
-
-### Docker daemon not running
-```bash
-open -a Docker  # macOS
-```
-
-### Ollama not responding
-```bash
-killall ollama
-ollama serve &
-```
-
-### Services not healthy
-```bash
-docker compose logs [service-name]
-docker compose restart [service-name]
-```
-
-### Reset everything
-```bash
-make reset          # Remove all volumes
-make dev            # Start fresh
-make init           # Reinitialize
-```
-
----
-
-## 📚 Resources
-
-- **Docling**: [PDF parsing](https://github.com/DS4SD/docling)
-- **Apache AGE**: [Graph extension for PostgreSQL](https://age.apache.org/)
-- **OpenSearch**: [Full-text search](https://opensearch.org/)
-- **LangFuse**: [LLM observability](https://langfuse.com/)
-- **Ollama**: [Local LLM inference](https://ollama.ai/)
-
----
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
+GroundStack builds on upstream projects including Docling, PyMuPDF, Apache AGE, PostgreSQL, OpenSearch, Redis, MinIO, FastAPI, Ollama, Langfuse, and RAGAS. Their licenses and versions should be reviewed before redistribution; see `pyproject.toml` and upstream project documentation.

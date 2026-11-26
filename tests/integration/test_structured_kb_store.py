@@ -33,7 +33,7 @@ def _conninfo() -> str:
     host = os.environ.get("POSTGRES_HOST", "localhost")
     port = os.environ.get("POSTGRES_PORT", "5432")
     user = os.environ.get("POSTGRES_USER", "rag")
-    password = os.environ.get("POSTGRES_PASSWORD", "rag_dev_2026")
+    password = os.environ.get("POSTGRES_PASSWORD", "")
     db = os.environ.get("POSTGRES_DB", "rag_platform")
     return f"host={host} port={port} user={user} password={password} dbname={db}"
 

@@ -109,7 +109,7 @@ class TestHandlerRegistration:
         queue.process = AsyncMock()
         worker = _make_worker(tmp_path, queue=queue)
 
-        asyncio.get_event_loop().run_until_complete(worker.run_forever())
+        asyncio.run(worker.run_forever())
 
         queue.register_handler.assert_called_once_with(
             TaskType.INGEST_PDF, worker.handle_ingest_task
@@ -123,7 +123,7 @@ class TestHandlerRegistration:
         worker = _make_worker(tmp_path, queue=queue)
 
         # Should not raise
-        asyncio.get_event_loop().run_until_complete(worker.run_forever())
+        asyncio.run(worker.run_forever())
 
 
 # ===========================================================================
@@ -137,7 +137,7 @@ class TestStop:
         queue.stop = AsyncMock()
         worker = _make_worker(tmp_path, queue=queue)
 
-        asyncio.get_event_loop().run_until_complete(worker.stop(timeout=5.0))
+        asyncio.run(worker.stop(timeout=5.0))
 
         queue.stop.assert_awaited_once_with(timeout=5.0)
 

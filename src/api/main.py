@@ -1,9 +1,12 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(
-    title="RAG Platform API",
-    description="API for the Retrieval-Augmented Generation Platform",
+    title="GroundStack API",
+    description="Experimental API and GroundStack workspace preview",
     version="0.1.0"
 )
 
@@ -12,8 +15,8 @@ async def health_check():
     """Health check endpoint."""
     return JSONResponse(
         content={
-            "status": "healthy",
-            "message": "Welcome to the RAG Platform API. The endpoints will be built in Week 2!"
+            "status": "ok",
+            "message": "Process is responding; dependency readiness is not checked."
         }
     )
 
@@ -21,3 +24,10 @@ async def health_check():
 async def root():
     """Root endpoint."""
     return {"message": "RAG Platform API is running. Check /docs for the API documentation."}
+
+
+app.mount(
+    "/workspace",
+    StaticFiles(directory=Path(__file__).resolve().parents[2] / "web", html=True),
+    name="workspace",
+)

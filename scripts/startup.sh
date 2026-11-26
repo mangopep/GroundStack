@@ -86,20 +86,23 @@ else
     echo -e "${GREEN}✓${NC} Ollama server started"
 fi
 
+# A small model default for constrained local hosts. Override through OLLAMA_MODEL.
+OLLAMA_MODEL="${OLLAMA_MODEL:-llama3.2:1b}"
+
 # Check if model is already pulled
 echo ""
 echo "3️⃣  Checking Ollama model..."
 echo ""
 
-if ollama list 2>/dev/null | grep -q "llama3.1:8b"; then
-    echo -e "${GREEN}✓${NC} Model llama3.1:8b already available"
+if ollama list 2>/dev/null | grep -Fq "$OLLAMA_MODEL"; then
+    echo -e "${GREEN}✓${NC} Model $OLLAMA_MODEL already available"
 else
-    echo "⏳ Pulling llama3.1:8b model (this may take several minutes)..."
-    if ollama pull llama3.1:8b; then
+    echo "⏳ Pulling $OLLAMA_MODEL model (this may take several minutes)..."
+    if ollama pull "$OLLAMA_MODEL"; then
         echo -e "${GREEN}✓${NC} Model pulled successfully"
     else
         echo -e "${YELLOW}⚠️  Model pull failed - you may need to do this manually${NC}"
-        echo "Run: ollama pull llama3.1:8b"
+        echo "Run: ollama pull $OLLAMA_MODEL"
     fi
 fi
 
@@ -144,7 +147,9 @@ echo "6️⃣  Initializing infrastructure..."
 echo ""
 
 # Activate virtual environment if it exists
-if [ -d "venv" ]; then
+if [ -d ".venv" ]; then
+    source .venv/bin/activate
+elif [ -d "venv" ]; then
     source venv/bin/activate
 fi
 
@@ -182,7 +187,7 @@ echo "  • PostgreSQL:  http://localhost:5432"
 echo "  • OpenSearch:  http://localhost:9200"
 echo "  • Redis:       http://localhost:6379"
 echo "  • MinIO:       http://localhost:9000"
-echo "  • MinIO UI:    http://localhost:9001 (minioadmin/minioadmin)"
+echo "  • MinIO UI:    http://localhost:9001 (credentials from .env)"
 echo "  • LangFuse:    http://localhost:3000"
 echo "  • Ollama:      http://localhost:11434"
 echo ""

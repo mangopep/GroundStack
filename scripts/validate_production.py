@@ -122,9 +122,10 @@ if results_bm25:
 # ── PostgreSQL metadata ───────────────────────────────────
 print("\n[PostgreSQL Metadata]")
 try:
-    conn = psycopg.connect(
-        "host=localhost port=5432 dbname=rag_platform user=rag password=rag_dev_2026"
-    )
+    from src.config.settings import get_settings
+
+    settings = get_settings()
+    conn = psycopg.connect(settings.database.url)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM document_metadata")
     (row_count,) = cur.fetchone()
@@ -142,7 +143,12 @@ except Exception as e:
 # ── MinIO document store ──────────────────────────────────
 print("\n[MinIO Document Store]")
 try:
-    minio = Minio("localhost:9000", access_key="minioadmin", secret_key="minioadmin", secure=False)
+    minio = Minio(
+        settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        secure=False,
+    )
     bucket_exists = minio.bucket_exists("rag-documents")
     check("Bucket 'rag-documents' exists", bucket_exists)
     if bucket_exists:

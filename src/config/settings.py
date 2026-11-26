@@ -5,6 +5,7 @@ Every other module should import from here instead of reading .env directly.
 """
 
 from functools import lru_cache
+from urllib.parse import quote
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,13 +21,15 @@ class DatabaseConfig(BaseModel):
     host: str = "localhost"
     port: int = 5432
     user: str = "rag"
-    password: str = "rag_dev_2026"
+    password: str = ""
     db: str = "rag_platform"
 
     @property
     def url(self) -> str:
         """Return PostgreSQL connection URL."""
-        return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.db}"
+        user = quote(self.user, safe="")
+        password = quote(self.password, safe="")
+        return f"postgresql://{user}:{password}@{self.host}:{self.port}/{self.db}"
 
 
 class OpenSearchConfig(BaseModel):
@@ -53,8 +56,8 @@ class MinIOConfig(BaseModel):
     """MinIO (S3-compatible) configuration."""
 
     endpoint: str = "localhost:9000"
-    access_key: str = "minioadmin"
-    secret_key: str = "minioadmin"
+    access_key: str = ""
+    secret_key: str = ""
     bucket: str = "rag-documents"
 
 
@@ -62,7 +65,7 @@ class OllamaConfig(BaseModel):
     """Ollama LLM configuration."""
 
     host: str = "http://localhost:11434"
-    model: str = "llama3.3:8b"
+    model: str = "llama3.2:1b"
 
 
 class LangFuseConfig(BaseModel):
@@ -76,7 +79,7 @@ class LangFuseConfig(BaseModel):
 class AppConfig(BaseModel):
     """General application configuration."""
 
-    api_key: str = "dev-key-change-in-prod"
+    api_key: str = ""
     log_level: str = "INFO"
     reranker_threshold: float = 0.7
 
@@ -105,7 +108,7 @@ class Settings(BaseSettings):
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "rag"
-    postgres_password: str = "rag_dev_2026"
+    postgres_password: str = ""
     postgres_db: str = "rag_platform"
 
     # OpenSearch
@@ -119,13 +122,13 @@ class Settings(BaseSettings):
 
     # MinIO
     minio_endpoint: str = "localhost:9000"
-    minio_access_key: str = "minioadmin"
-    minio_secret_key: str = "minioadmin"
+    minio_access_key: str = ""
+    minio_secret_key: str = ""
     minio_bucket: str = "rag-documents"
 
     # Ollama
     ollama_host: str = "http://localhost:11434"
-    ollama_model: str = "llama3.3:8b"
+    ollama_model: str = "llama3.2:1b"
 
     # LangFuse
     langfuse_host: str = "http://localhost:3000"
@@ -133,7 +136,7 @@ class Settings(BaseSettings):
     langfuse_secret_key: str | None = None
 
     # App
-    api_key: str = "dev-key-change-in-prod"
+    api_key: str = ""
     log_level: str = "INFO"
     reranker_threshold: float = 0.7
 
@@ -226,7 +229,7 @@ def get_settings() -> Settings:
         >>> from src.config import get_settings
         >>> settings = get_settings()
         >>> settings.database.url
-        'postgresql://rag:rag_dev_2026@localhost:5432/rag_platform'
+        'postgresql://rag:@localhost:5432/rag_platform'
     """
     return Settings()
 

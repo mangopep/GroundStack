@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Initialize MinIO buckets for RAG platform."""
 
-import os
-
 from minio import Minio
 from minio.error import S3Error
+
+from src.config.settings import get_settings
 
 
 def create_buckets(client: Minio, bucket_names: list[str]) -> bool:
@@ -25,9 +25,12 @@ def create_buckets(client: Minio, bucket_names: list[str]) -> bool:
 def main():
     """Main function to connect to MinIO and create buckets."""
     # Get configuration from environment variables
-    host = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-    access_key = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-    secret_key = os.getenv("MINIO_SECRET_KEY", "minioadmin")
+    settings = get_settings()
+    host = settings.minio_endpoint
+    access_key = settings.minio_access_key
+    secret_key = settings.minio_secret_key
+    if not access_key or not secret_key:
+        raise SystemExit("Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY before initializing MinIO.")
 
     # Create client (secure=False for local HTTP)
     client = Minio(

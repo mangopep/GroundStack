@@ -27,8 +27,8 @@ def _make_store() -> DocStore:
     mock_client.bucket_exists.return_value = True
     store = DocStore.__new__(DocStore)
     store._endpoint = "localhost:9000"
-    store._access_key = "minioadmin"
-    store._secret_key = "minioadmin"
+    store._access_key = "unit-test-key"
+    store._secret_key = "unit-test-secret"
     store._secure = False
     store._documents_bucket = DEFAULT_DOCUMENTS_BUCKET
     store._images_bucket = DEFAULT_IMAGES_BUCKET
@@ -48,12 +48,14 @@ class TestInit:
         mock_client.bucket_exists.return_value = True
         mock_minio.return_value = mock_client
 
-        store = DocStore()
+        # Keep the defaults assertion isolated from developer .env files.
+        with patch.dict("os.environ", {}, clear=True):
+            store = DocStore()
 
         mock_minio.assert_called_once_with(
             "localhost:9000",
-            access_key="minioadmin",
-            secret_key="minioadmin",
+            access_key="",
+            secret_key="",
             secure=False,
         )
         assert store._documents_bucket == DEFAULT_DOCUMENTS_BUCKET

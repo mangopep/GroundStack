@@ -58,13 +58,14 @@ def test_corrupted_pdf_handling(corrupted_pdf):
     assert "Failed to open file" in str(exc_info.value) or "FileDataError" in str(exc_info.value.__class__.__name__)
 
 def test_large_pdf_extraction_status(large_pdf):
-    # Test that a clean native PDF gets "success" status for all pages
+    # Docling versions may leave pages empty; those pages must report the
+    # PyMuPDF fallback rather than claim primary-parser success.
     results = process_pdf(large_pdf)
 
     assert len(results) == 20
     for res in results:
         assert res.page_type == "native"
-        assert res.extraction_status == "success"
+        assert res.extraction_status in {"success", "partial_fallback"}
         assert len(res.text) > 0
 
 def test_mixed_layout_status_tracking(mixed_layout_pdf, monkeypatch):

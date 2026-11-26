@@ -37,7 +37,7 @@ class CostTracker:
 
     Usage:
         tracker = CostTracker()
-        tracker.record_call("llama3.3:8b", 100, 50, 500, "rewriter")
+        tracker.record_call("llama3.2:1b", 100, 50, 500, "rewriter")
         stats = tracker.get_daily_stats()
     """
 
@@ -77,7 +77,7 @@ class CostTracker:
         Record a single LLM call to Redis.
 
         Args:
-            model: Model name (e.g., "llama3.3:8b")
+            model: Model identifier, such as ``llama3.2:1b``.
             input_tokens: Number of input tokens
             output_tokens: Number of output tokens
             latency_ms: Latency in milliseconds

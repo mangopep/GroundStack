@@ -26,8 +26,8 @@ from src.stores.doc_store import DocStore
 
 def _minio_reachable() -> bool:
     endpoint = os.environ.get("MINIO_ENDPOINT", "localhost:9000")
-    access_key = os.environ.get("MINIO_ACCESS_KEY", "minioadmin")
-    secret_key = os.environ.get("MINIO_SECRET_KEY", "minioadmin")
+    access_key = os.environ.get("MINIO_ACCESS_KEY", "")
+    secret_key = os.environ.get("MINIO_SECRET_KEY", "")
     try:
         client = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=False)
         client.list_buckets()

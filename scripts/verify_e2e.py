@@ -129,7 +129,15 @@ except Exception as e:
 print("\n[Part 6] Document Store (MinIO)")
 try:
     from minio import Minio
-    mc = Minio("localhost:9000", access_key="minioadmin", secret_key="minioadmin", secure=False)
+    from src.config.settings import get_settings
+
+    settings = get_settings()
+    mc = Minio(
+        settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        secure=False,
+    )
     BUCKET = "rag-documents"
     found = mc.bucket_exists(BUCKET)
     if found:
@@ -144,7 +152,7 @@ except Exception as e:
 print("\n[Part 7] Metadata Persistence (PostgreSQL)")
 try:
     import psycopg
-    conn = psycopg.connect("host=localhost port=5432 dbname=rag_platform user=rag password=rag_dev_2026")
+    conn = psycopg.connect(get_settings().database.url)
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM document_metadata")
     row_count = cur.fetchone()[0]

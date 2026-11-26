@@ -40,8 +40,8 @@ class DocStore:
             images_bucket: Images bucket name (defaults to MINIO_IMAGES_BUCKET).
         """
         self._endpoint = endpoint or os.getenv("MINIO_ENDPOINT", "localhost:9000")
-        self._access_key = access_key or os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-        self._secret_key = secret_key or os.getenv("MINIO_SECRET_KEY", "minioadmin")
+        self._access_key = access_key or os.getenv("MINIO_ACCESS_KEY", "")
+        self._secret_key = secret_key or os.getenv("MINIO_SECRET_KEY", "")
         self._secure = self._normalize_secure_flag(secure)
         self._documents_bucket = documents_bucket or os.getenv(
             "MINIO_DOCUMENTS_BUCKET", DEFAULT_DOCUMENTS_BUCKET
