@@ -1616,9 +1616,9 @@ langcodes==3.5.1 \
     --hash=sha256:40bff315e01b01d11c2ae3928dd4f5cbd74dd38f9bd912c12b9a3606c143f731 \
     --hash=sha256:b6a9c25c603804e2d169165091d0cdb23934610524a21d226e4f463e8e958a72
     # via docling-slim
-langfuse==2.60.10 \
-    --hash=sha256:815c6369194aa5b2a24f88eb9952f7c3fc863272c41e90642a71f3bc76f4a11f \
-    --hash=sha256:a26d0d927a28ee01b2d12bb5b862590b643cc4e60a28de6e2b0c2cfff5dbfc6a
+langfuse==5.2.0 \
+    --hash=sha256:4763cbad358960f1036078a4c6e9f86f04690ea566541709c2c40aa1998e2b0f \
+    --hash=sha256:8cde9e91b44b53444906af9b37efa9c29c647a9f45f9f8435a638026cb3d4693
     # via groundstack (pyproject.toml)
 latex2mathml==3.81.1 \
     --hash=sha256:c337668441b71c819b6733905a8058ba9a9d767bae11a0c5fdacb3aff31361bd \

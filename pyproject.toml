@@ -27,7 +27,7 @@ ingestion = [
     
     # LLM & AI
     "ollama",
-    "langfuse>=2,<3",
+    "langfuse>=2,<6",
     "instructor",
     "flashrank",
     
