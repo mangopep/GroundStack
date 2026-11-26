@@ -52,7 +52,7 @@ jobs:
         if: failure()
         run: |
           docker compose ps --all
-          docker compose logs --no-color --tail=150 postgres langfuse
+          docker compose logs --no-color --tail=150 postgres langfuse-db-init langfuse
       - name: Stop this runner's development stack
         if: always()
         run: docker compose down --remove-orphans
