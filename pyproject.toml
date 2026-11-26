@@ -2,8 +2,15 @@
 name = "groundstack"
 version = "0.1.0"
 description = "RAG Platform with knowledge graph and retrieval"
-requires-python = ">=3.11"
+requires-python = ">=3.11.5"
 dependencies = [
+    # The currently deployable API uses only these runtime dependencies.
+    "fastapi",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+ingestion = [
     # PDF/Document processing
     "docling",
     "pymupdf",
@@ -12,14 +19,11 @@ dependencies = [
     
     # Database
     "psycopg[binary]",
+    "psycopg-pool",
     
     # Search & Storage
     "opensearch-py",
     "minio",
-    
-    # Web server
-    "fastapi",
-    "uvicorn",
     
     # LLM & AI
     "ollama",
@@ -34,17 +38,24 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
     "httpx",
+    "python-dotenv",
     "redis",
+    "watchdog",
+    "reportlab",
     
     # Chat UI
     "chainlit",
     
-    # Testing
-    "pytest",
 ]
 
-[project.optional-dependencies]
-dev = ["ruff>=0.6", "mypy>=1.11", "pytest-cov>=5", "pip-audit>=2.10,<3"]
+dev = [
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pytest",
+    "pytest-cov>=5",
+    "pip-audit>=2.10,<3",
+    "bandit>=1.8,<2",
+]
 
 [build-system]
 requires = ["setuptools>=61.0"]

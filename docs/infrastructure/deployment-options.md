@@ -2,7 +2,7 @@
 
 ## Current
 
-Only a development Docker Compose topology exists. There is no GroundStack application container, Kubernetes manifest, Helm chart, Terraform module, AWS account setup, managed storage configuration, autoscaling policy, or production deployment tested in this repository.
+The development Docker Compose topology includes an optional API preview image for the currently implemented health/root/static-workspace routes. The trusted release workflow can build and attest this image, but no full GroundStack query/ingestion application container, Kubernetes manifest, Helm chart, Terraform module, AWS account setup, managed storage configuration, autoscaling policy, or production deployment has been implemented or tested.
 
 ## Future cloud design
 

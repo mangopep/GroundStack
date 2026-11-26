@@ -34,7 +34,7 @@ app:
 
 # Run tests
 test:
-	$(PYTHON) -m pytest -q
+	$(PYTHON) -m pytest -q --cov=src --cov-report=term-missing --cov-fail-under=75
 
 # Install the hash-locked application and docs toolchains
 setup:
@@ -73,6 +73,7 @@ typecheck:
 # Audit exact, hash-locked package versions without installing dependencies again
 security:
 	$(PIP_AUDIT) --requirement requirements-lock.txt --disable-pip
+	$(PYTHON) -m bandit --quiet --recursive src
 
 # Build the Python wheel
 build:
@@ -86,11 +87,12 @@ smoke:
 
 # Service-backed tests; configure and start the required services first
 integration:
-	$(PYTHON) -m pytest -q tests/integration
+	./scripts/run_integration.sh
 
 # Strictly build the documentation site
 docs:
 	$(ZENSICAL) build --strict
+	$(PYTHON) scripts/check_mermaid.py
 
 # Remove generated build/test outputs only; Docker data volumes are untouched
 clean:

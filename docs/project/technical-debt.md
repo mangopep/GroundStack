@@ -18,14 +18,14 @@ Prioritized by risk and dependency, based on the 2026-11-26 audit.
 9. PostgreSQL schema is a one-time init SQL script; no migration tool or compatibility policy.
 10. Search mapping drift: initializer declares `page_number`, while `BM25Store` stores/expects `page_numbers`.
 11. OpenSearch initialization uses two shards, one replica for a single-node local service; replicas will remain unassigned and consume unnecessary capacity.
-12. `minio/minio:latest` is mutable; versions and ARM64 support are not recorded/tested as a complete matrix.
+12. Infrastructure images are now pinned by digest and MinIO uses a maintained image. The ARM64 production Compose stack has not been measured end-to-end.
 
 ## P2 — Maintainability and operations
 
-13. **Strict type checking is not configured.** Ruff and formatting pass locally after the recovery cleanup, but CI has no verified strict mypy/pyright check. Add it after selecting a bounded module scope and resolving real findings.
-14. No application dependency lock. `docling`, `surya-ocr`, and many dependencies are unbounded. RAGAS was removed from project dependencies because its current graph includes [`diskcache` 5.6.3](https://osv.dev/vulnerability/PYSEC-2026-2447), which uses unsafe pickle deserialization and has no fixed version listed in the advisory. Add an evaluation package only after selecting a safe replacement or mitigation. Direct imports for `watchdog` and `python-dotenv` are not direct project dependencies.
+13. **Strict type checking is scoped.** CI strictly checks the settings module and schema boundaries; application-wide mypy is not yet clean or claimed.
+14. **Evaluation tooling is unresolved.** RAGAS was removed after its graph included [`diskcache` 5.6.3](https://osv.dev/vulnerability/PYSEC-2026-2447). The harness has no published benchmark. Choose a maintained, audited evaluator before restoring automated RAG evaluation.
 15. Many empty legacy placeholders and empty scripts/docs remain tracked; duplicate old docs coexist with newer docs.
 16. `init_db.sql` calls AGE graph creation in the init script but there is no graph schema lifecycle or migration.
-17. Tests do not exercise all real services concurrently or persistence across restart. MinIO integration tests skipped in baseline.
+17. Disposable PostgreSQL, OpenSearch, Redis, and MinIO integration checks now run in an isolated workflow. Persistence across service restarts and full ingestion orchestration remain unverified.
 18. Operational scripts have inconsistent configuration sources. Some use Pydantic settings, others read environment directly. `.env` is loaded as a side effect by the PDF parser.
 19. No measured retrieval quality, citation accuracy, ingestion throughput, p95 query latency, or peak memory. Current report does not provide production readiness.

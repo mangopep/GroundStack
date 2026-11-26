@@ -8,7 +8,7 @@ From the repository root:
 make setup
 ```
 
-This creates `.venv`, installs the hash-locked application, development, and docs dependencies, then installs the local package without resolving a second dependency set. It includes Docling, OCR, PyTorch, and related packages, so it is a large install; no 8 GB memory or disk benchmark has been measured. If setup fails, confirm Python 3.11 and a working package index, then inspect the exact first resolver/download error. Repeat the command to resume. It changes only `.venv` and package caches; remove `.venv` only if you intentionally want to discard the environment.
+This creates `.venv`, installs the hash-locked application, development, and docs dependencies, then installs the local package without resolving a second dependency set. It includes Docling, OCR, PyTorch, and related packages, so it is a large install; no 8 GB memory or disk benchmark has been measured. If setup fails, confirm Python 3.11.5 or newer and a working package index, then inspect the exact first resolver/download error. Repeat the command to resume. It changes only `.venv` and package caches; remove `.venv` only if you intentionally want to discard the environment.
 
 ## Local service configuration
 

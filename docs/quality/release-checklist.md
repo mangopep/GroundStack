@@ -9,6 +9,8 @@ A release is blocked until applicable gates have evidence:
 - [ ] Auth, authorization, tenant isolation, rate limits, and prompt-injection controls are tested before multi-user use.
 - [ ] Quality/latency/memory results include corpus and hardware details; no fabricated metrics.
 - [ ] Dependency/container/secret scans, license review, SBOM, and artifact provenance are reviewed.
+- [ ] Complete a non-publishing run of [Trusted release](../infrastructure/release.md); verify candidate artifact, multi-architecture SBOM, and all required check runs.
+- [ ] Configure protected `main`, required checks, and the `release` environment with an available approval owner before enabling publication.
 - [ ] Docs strict build, link checks, API reference, and examples pass.
 - [ ] Changelog, semantic version, rollback notes, support/security process, and known limitations are published.
 

@@ -7,6 +7,10 @@ SET search_path = ag_catalog, public;
 -- Create RagGraph graph
 SELECT create_graph('rag_knowledge');
 
+-- AGE must be first on search_path only for graph functions. Keep application
+-- tables in public so normal application connections can resolve them.
+SET search_path = public;
+
 -- Create structured_kb table
 CREATE TABLE IF NOT EXISTS structured_kb (
     id TEXT PRIMARY KEY,

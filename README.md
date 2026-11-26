@@ -58,20 +58,20 @@ The diagram's solid path describes code present in the repository; dashed edges 
 
 ### Requirements
 
-- Python 3.11 or newer
+- Python 3.11.5 or newer
 - Docker Compose v2 for service-backed integration
 - macOS or Linux (Windows via WSL2 is not yet validated)
 - Disk/RAM requirements depend heavily on Docling and OCR dependencies; an 8 GB profile has not been validated
 
 ### Install Python dependencies
 
-The current dependency set includes heavyweight document/OCR and evaluation packages. Installation size and time can be significant.
+The API runtime is intentionally small. The full `ingestion` extra includes Docling, OCR, storage, search, and model integrations and can require substantial download time and disk space. The evaluation harness has no published benchmark; RAGAS is not installed.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,ingestion]'
 ```
 
 ### Start the development services

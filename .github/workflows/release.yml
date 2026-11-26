@@ -1,0 +1,397 @@
+name: Trusted release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version without the v prefix (for example 0.1.0-rc.1)
+        required: true
+        type: string
+      publish:
+        description: Publish the verified candidate. Requires a v-prefixed tag, RELEASE_PUBLISH_ENABLED=true, and approval in the release environment.
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trusted-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+    outputs:
+      tag: ${{ steps.release-input.outputs.tag }}
+      image_tag: ${{ steps.release-input.outputs.image_tag }}
+      image: ${{ steps.release-input.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate version, source ancestry, and release uniqueness
+        id: release-input
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+          GH_REF_TYPE: ${{ github.ref_type }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+
+          version = os.environ["RELEASE_VERSION"]
+          match = re.fullmatch(
+              r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?",
+              version,
+          )
+          if not match:
+              raise SystemExit("version must be valid semantic version without the v prefix")
+          for group_index, group in enumerate(match.groups()[3:], start=4):
+              if group is None:
+                  continue
+              identifiers = group.split(".")
+              if any(not identifier for identifier in identifiers):
+                  raise SystemExit("semantic version prerelease/build identifiers cannot be empty")
+              if group_index == 4:
+                  has_leading_zero = any(
+                      identifier.isdigit()
+                      and len(identifier) > 1
+                      and identifier.startswith("0")
+                      for identifier in identifiers
+                  )
+                  if has_leading_zero:
+                      raise SystemExit("numeric semantic version prerelease identifiers cannot have leading zeroes")
+          tag = f"v{version}"
+          publishing = os.environ["RELEASE_PUBLISH"] == "true"
+          if publishing:
+              if os.environ["GH_REF_TYPE"] != "tag" or os.environ["GH_REF_NAME"] != tag:
+                  raise SystemExit("publishing requires dispatching this workflow on the matching v-prefixed tag")
+              subprocess.run(["git", "fetch", "origin", "main", "--depth=1"], check=True)
+              subprocess.run(["git", "merge-base", "--is-ancestor", os.environ["GH_SHA"], "origin/main"], check=True)
+              required_checks = {
+                  "python", "build", "codeql", "secret-scan", "services", "development-stack", "api-image"
+              }
+              checks = subprocess.run(
+                  ["gh", "api", f"repos/{os.environ['GH_REPOSITORY']}/commits/{os.environ['GH_SHA']}/check-runs"],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              )
+              import json
+
+              successful = {
+                  check["name"]
+                  for check in json.loads(checks.stdout)["check_runs"]
+                  if check["status"] == "completed" and check["conclusion"] == "success"
+              }
+              missing = sorted(required_checks - successful)
+              if missing:
+                  raise SystemExit(f"commit lacks successful required check runs: {', '.join(missing)}")
+              release_lookup = subprocess.run(
+                  ["gh", "release", "view", tag, "--repo", os.environ["GH_REPOSITORY"]],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.PIPE,
+                  text=True,
+              )
+              if release_lookup.returncode == 0:
+                  raise SystemExit(f"GitHub release {tag} already exists")
+              if "HTTP 404" not in release_lookup.stderr:
+                  raise SystemExit("could not confirm that the GitHub release version is unused")
+          image = f"ghcr.io/{os.environ['GH_REPOSITORY'].lower()}/api"
+          image_tag = f"v{version.replace('+', '_')}"
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"tag={tag}\nimage_tag={image_tag}\nimage={image}\n")
+          print(f"Validated candidate {tag}; publish requested: {publishing}")
+          PY
+
+  quality:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      COMPOSE_PROJECT_NAME: groundstack-release-${{ github.run_id }}-${{ github.run_attempt }}
+      GROUNDSTACK_RUN_SERVICE_INTEGRATION: "1"
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "15432"
+      POSTGRES_USER: groundstack_test
+      POSTGRES_PASSWORD: groundstack_test_only_password
+      POSTGRES_DB: groundstack_test
+      OPENSEARCH_HOST: 127.0.0.1
+      OPENSEARCH_PORT: "19200"
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: "16379"
+      MINIO_ENDPOINT: 127.0.0.1:19000
+      MINIO_ACCESS_KEY: groundstack_test
+      MINIO_SECRET_KEY: groundstack_test_only_password
+      MINIO_SECURE: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v6.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-lock.txt
+      - run: python -m pip install --require-hashes -r requirements-lock.txt
+      - run: python -m pip install --no-deps -e .
+      - run: pip-audit --requirement requirements-lock.txt --disable-pip
+      - run: bandit --quiet --recursive src
+      - name: Scan source, dependency manifests, and licenses
+        run: >-
+          docker run --rm -v "$PWD:/workspace:ro"
+          aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+          fs --scanners vuln,secret,license --severity HIGH,CRITICAL --exit-code 1
+          --file-patterns 'pip:requirements-.*\.txt'
+          --no-progress /workspace
+      - run: ruff check .
+      - run: ruff format --check src scripts tests
+      - run: mypy --strict src/config/settings.py src/schemas/query.py src/schemas/response.py src/schemas/knowledge.py
+      - run: node --check web/app.js
+      - run: python scripts/export_openapi.py --check
+      - run: pytest -q --cov=src --cov-report=term-missing --cov-fail-under=75
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v6.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - run: python -m pip install --require-hashes -r requirements-docs.txt
+      - run: zensical build --strict
+      - run: python scripts/check_mermaid.py
+      - name: Lint Dockerfile and validate Compose
+        run: |
+          docker run --rm -i hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+          POSTGRES_PASSWORD=Compose-Validation-Only \
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD=Compose-Validation-Only_93! \
+          MINIO_ROOT_USER=compose-validation-only \
+          MINIO_ROOT_PASSWORD=compose-validation-only \
+          LANGFUSE_NEXTAUTH_SECRET=compose-validation-only \
+          LANGFUSE_SALT=compose-validation-only \
+            docker compose config --quiet
+          docker compose -f docker-compose.integration.yml config --quiet
+      - name: Start isolated integration services
+        run: docker compose -f docker-compose.integration.yml up --detach --wait --wait-timeout 240
+      - name: Wait for MinIO and run real service integrations
+        run: |
+          attempt=0
+          until curl --fail --silent http://127.0.0.1:19000/minio/health/live >/dev/null; do
+            attempt=$((attempt + 1))
+            if [ "$attempt" -ge 30 ]; then echo "MinIO did not become ready" >&2; exit 1; fi
+            sleep 2
+          done
+          python -m pytest -q tests/integration
+      - name: Stop isolated services
+        if: always()
+        run: docker compose -f docker-compose.integration.yml down --volumes --remove-orphans
+
+  candidate:
+    needs: [verify, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build multi-architecture OCI candidate without publishing
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          IMAGE_TAG: ${{ needs.verify.outputs.image_tag }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          docker buildx build --pull --platform linux/amd64,linux/arm64 \
+            --provenance=false --sbom=false \
+            --output type=oci,dest=/tmp/groundstack-api.oci.tar \
+            --tag "groundstack-api:${IMAGE_TAG}" \
+            --build-arg "IMAGE_VERSION=${RELEASE_VERSION}" \
+            --build-arg "SOURCE_REVISION=${GH_SHA}" .
+          python scripts/inspect_oci_archive.py /tmp/groundstack-api.oci.tar \
+            --version "$RELEASE_VERSION" --revision "$GH_SHA"
+      - name: Scan release candidate and generate platform CycloneDX SBOMs
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          IMAGE_NAME: ${{ needs.verify.outputs.image }}
+        run: |
+          for architecture in amd64 arm64; do
+            platform="linux/$architecture"
+            docker run --rm -v /tmp:/work \
+              aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              --scanners vuln,misconfig,license --severity HIGH,CRITICAL --exit-code 1 --no-progress
+            docker run --rm -v /tmp:/work \
+              aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              --format cyclonedx --output "/work/groundstack-api-linux-$architecture.cdx.json" --no-progress
+          done
+          python - <<'PY'
+          import json
+          import os
+
+          manifest = {
+              "version": os.environ["RELEASE_VERSION"],
+              "revision": os.environ["GITHUB_SHA"],
+              "image": os.environ["IMAGE_NAME"],
+              "candidate": "not-published",
+              "platforms": ["linux/amd64", "linux/arm64"],
+              "sbom": [
+                  "groundstack-api-linux-amd64.cdx.json",
+                  "groundstack-api-linux-arm64.cdx.json",
+              ],
+          }
+          with open("/tmp/release-manifest.json", "w", encoding="utf-8") as output:
+              json.dump(manifest, output, indent=2)
+              output.write("\n")
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: groundstack-release-candidate-${{ github.run_id }}
+          path: |
+            /tmp/groundstack-api.oci.tar
+            /tmp/groundstack-api-linux-*.cdx.json
+            /tmp/release-manifest.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    if: inputs.publish == true && vars.RELEASE_PUBLISH_ENABLED == 'true'
+    needs: [verify, quality, candidate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          name: groundstack-release-candidate-${{ github.run_id }}
+          path: /tmp/release
+      - uses: sigstore/cosign-installer@881c63bd87e38389154debd8331404ce7ca8a3ab # v4.1.4
+        with:
+          cosign-release: v3.1.6
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Confirm version and registry tag are unused
+        env:
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          IMAGE_TAG: ${{ needs.verify.outputs.image_tag }}
+          RELEASE_IMAGE: ${{ needs.verify.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if docker run --rm \
+            quay.io/skopeo/stable@sha256:4784191278912fc8e8dd914fd28e65540c499798d59f688f97c7e1a22a259d38 \
+            inspect --creds "$GHCR_USER:$GHCR_TOKEN" "docker://$RELEASE_IMAGE:$IMAGE_TAG" \
+            >/dev/null 2>/tmp/registry-inspect.err; then
+            echo "Registry tag already exists: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          if ! grep --quiet --ignore-case --extended-regexp \
+            'manifest unknown|name unknown|not found|404' /tmp/registry-inspect.err; then
+            echo "Could not confirm the registry version tag is unused" >&2
+            exit 1
+          fi
+      - name: Publish exact verified OCI archive to GHCR
+        id: publish-image
+        env:
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          IMAGE_TAG: ${{ needs.verify.outputs.image_tag }}
+          RELEASE_IMAGE: ${{ needs.verify.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm -v /tmp/release:/work \
+            quay.io/skopeo/stable@sha256:4784191278912fc8e8dd914fd28e65540c499798d59f688f97c7e1a22a259d38 \
+            copy --all --digestfile /work/image.digest \
+            --dest-creds "$GHCR_USER:$GHCR_TOKEN" \
+            oci-archive:/work/groundstack-api.oci.tar "docker://$RELEASE_IMAGE:$IMAGE_TAG"
+          digest=$(cat /tmp/release/image.digest)
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          docker run --rm -v /tmp/release:/work \
+            quay.io/skopeo/stable@sha256:4784191278912fc8e8dd914fd28e65540c499798d59f688f97c7e1a22a259d38 \
+            copy --all --dest-creds "$GHCR_USER:$GHCR_TOKEN" \
+            "docker://$RELEASE_IMAGE:$IMAGE_TAG" "docker://$RELEASE_IMAGE:$GITHUB_SHA"
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ needs.verify.outputs.image }}
+          subject-digest: ${{ steps.publish-image.outputs.digest }}
+          push-to-registry: true
+      - name: Sign and verify the immutable image digest
+        env:
+          RELEASE_IMAGE: ${{ needs.verify.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.publish-image.outputs.digest }}
+          RELEASE_REF: ${{ github.ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="$RELEASE_IMAGE@$IMAGE_DIGEST"
+          identity="https://github.com/mangopep/GroundStack/.github/workflows/release.yml@${RELEASE_REF}"
+          cosign sign --yes "$image"
+          cosign attest --yes --type cyclonedx \
+            --predicate /tmp/release/groundstack-api-linux-amd64.cdx.json "$image"
+          cosign attest --yes --type cyclonedx \
+            --predicate /tmp/release/groundstack-api-linux-arm64.cdx.json "$image"
+          cosign verify "$image" \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/tmp/verified-signature.json
+          cosign verify-attestation --type cyclonedx "$image" \
+            --certificate-identity "$identity" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/tmp/verified-sbom-attestation.json
+          gh attestation verify "oci://$image" --owner mangopep \
+            --signer-repo mangopep/GroundStack \
+            --signer-workflow mangopep/GroundStack/.github/workflows/release.yml
+      - name: Create digest-addressed release manifest and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          RELEASE_IMAGE: ${{ needs.verify.outputs.image }}
+          IMAGE_DIGEST: ${{ steps.publish-image.outputs.digest }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          manifest = {
+              "version": os.environ["RELEASE_TAG"],
+              "source_revision": os.environ["GH_SHA"],
+              "image": f"{os.environ['RELEASE_IMAGE']}@{os.environ['IMAGE_DIGEST']}",
+              "sboms": [
+                  "groundstack-api-linux-amd64.cdx.json",
+                  "groundstack-api-linux-arm64.cdx.json",
+              ],
+              "provenance": "GitHub artifact attestation and Sigstore keyless signature",
+          }
+          with open("/tmp/release/release-manifest.json", "w", encoding="utf-8") as output:
+              json.dump(manifest, output, indent=2)
+              output.write("\n")
+          PY
+          gh release create "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" --verify-tag --generate-notes \
+            /tmp/release/release-manifest.json \
+            /tmp/release/groundstack-api-linux-amd64.cdx.json \
+            /tmp/release/groundstack-api-linux-arm64.cdx.json

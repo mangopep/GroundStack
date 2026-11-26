@@ -1,5 +1,7 @@
 # API overview
 
+The committed [OpenAPI document](openapi.json) is generated from the FastAPI app with `python scripts/export_openapi.py`. CI checks for drift using `python scripts/export_openapi.py --check`. It describes only the current root and process-health endpoints; the static workspace mount is not an API operation.
+
 The FastAPI application is `src.api.main:app`.
 
 | Route | Current behavior |

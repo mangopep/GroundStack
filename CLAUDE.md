@@ -44,5 +44,5 @@ Do not make API, worker, and store modules import one another in cycles. Introdu
 
 ## Code quality
 
-- Follow Ruff's configured Python 3.11 style. The current repository has known Ruff/format violations; see `docs/project/technical-debt.md`. Do not apply repository-wide autoformatting without reviewing the resulting diff.
+- Follow Ruff's configured Python 3.11 style. CI checks lint across the repository and formatting in `src/`, `scripts/`, and `tests/`. Keep those checks clean; do not apply repository-wide autoformatting without reviewing the resulting diff.
 - Add type annotations to public functions and adapter contracts. Keep static type checks scoped to code that has been brought into compliance, then expand the checked surface deliberately.

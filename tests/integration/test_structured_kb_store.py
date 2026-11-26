@@ -22,6 +22,8 @@ import pytest
 from src.schemas.knowledge import CLICommandReference, KnowledgeObject
 from src.stores.structured_kb import StructuredKBStore
 
+_CREATED_IDS: set[str] = set()
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -48,8 +50,8 @@ def _db_reachable() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _db_reachable(),
-    reason="PostgreSQL is not reachable — skipping integration tests",
+    os.environ.get("GROUNDSTACK_RUN_SERVICE_INTEGRATION") != "1" or not _db_reachable(),
+    reason="Set GROUNDSTACK_RUN_SERVICE_INTEGRATION=1 with a disposable PostgreSQL service",
 )
 
 
@@ -69,8 +71,10 @@ def _make_obj(
     tags: list[str] | None = None,
     command: str = "docker ps",
 ) -> KnowledgeObject:
+    object_id = obj_id or _unique_id()
+    _CREATED_IDS.add(object_id)
     return KnowledgeObject(
-        id=obj_id or _unique_id(),
+        id=object_id,
         type="cli_command_reference",
         version=1,
         data=CLICommandReference(
@@ -83,6 +87,23 @@ def _make_obj(
         created_by="integration-test",
         tags=tags or [],
     )
+
+
+@pytest.fixture(autouse=True)
+def cleanup_created_rows():
+    """Delete only rows created by this test process after each test."""
+    before = _CREATED_IDS.copy()
+    yield
+    test_ids = _CREATED_IDS - before
+    if not test_ids:
+        return
+    with psycopg.connect(_conninfo(), connect_timeout=2) as conn:
+        table_exists = conn.execute("SELECT to_regclass('public.structured_kb')").fetchone()[0]
+        if table_exists is None:
+            return
+        conn.execute("DELETE FROM structured_kb WHERE id = ANY(%s)", (list(test_ids),))
+        conn.commit()
+    _CREATED_IDS.difference_update(test_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -217,10 +238,11 @@ class TestSearchByTags:
 
 class TestSearchByType:
     def test_finds_matching_object(self, store):
-        obj = _make_obj(command="kubectl get pods")
+        marker = f"groundstackmarker{uuid.uuid4().hex}"
+        obj = _make_obj(command=f"kubectl {marker} get pods")
         store.insert(obj)
 
-        results = store.search_by_type("cli_command_reference", "kubectl")
+        results = store.search_by_type("cli_command_reference", marker)
 
         ids = [r["id"] for r in results]
         assert obj.id in ids
@@ -236,10 +258,11 @@ class TestSearchByType:
         assert isinstance(results[0]["score"], float)
 
     def test_limit_respected(self, store):
+        marker = f"groundstackmarker{uuid.uuid4().hex}"
         for _ in range(3):
-            store.insert(_make_obj(command="grep pattern file"))
+            store.insert(_make_obj(command=f"grep {marker} pattern file"))
 
-        results = store.search_by_type("cli_command_reference", "grep", limit=2)
+        results = store.search_by_type("cli_command_reference", marker, limit=2)
 
         assert len(results) <= 2
 

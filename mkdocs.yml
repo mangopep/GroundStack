@@ -108,6 +108,7 @@ nav:
           - Python baseline: architecture/decisions/0001-modular-python-baseline.md
           - Search storage: architecture/decisions/0002-search-storage.md
           - Documentation platform: architecture/adr/0003-docs-platform.md
+      - Release artifact promotion: architecture/decisions/0004-release-artifact-promotion.md
   - Internals:
       - Application startup: internals/application-startup.md
       - Configuration: internals/configuration.md
@@ -153,6 +154,8 @@ nav:
       - Networking: infrastructure/networking.md
       - Deployment options: infrastructure/deployment-options.md
       - CI/CD: infrastructure/cicd.md
+      - Release process: infrastructure/release.md
+      - Environments: infrastructure/environments.md
   - Operations:
       - Monitoring: operations/monitoring.md
       - Logging: operations/logging.md

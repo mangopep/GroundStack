@@ -36,8 +36,8 @@ def _minio_reachable() -> bool:
 
 
 pytestmark = pytest.mark.skipif(
-    not _minio_reachable(),
-    reason="MinIO is not reachable — skipping integration tests",
+    os.environ.get("GROUNDSTACK_RUN_SERVICE_INTEGRATION") != "1" or not _minio_reachable(),
+    reason="Set GROUNDSTACK_RUN_SERVICE_INTEGRATION=1 with a disposable MinIO service",
 )
 
 
@@ -50,10 +50,18 @@ def _uid(prefix: str = "test") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def store():
-    """One DocStore shared across all tests in this module."""
-    return DocStore()
+    """Use per-test buckets so this suite cannot see or alter user objects."""
+    suffix = uuid.uuid4().hex
+    documents_bucket = f"gs-test-docs-{suffix}"
+    images_bucket = f"gs-test-images-{suffix}"
+    result = DocStore(documents_bucket=documents_bucket, images_bucket=images_bucket)
+    yield result
+    for bucket in (documents_bucket, images_bucket):
+        for obj in result._client.list_objects(bucket, recursive=True):
+            result._client.remove_object(bucket, obj.object_name)
+        result._client.remove_bucket(bucket)
 
 
 @pytest.fixture

@@ -10,6 +10,7 @@ Reads model from config/settings.py.
 """
 
 import asyncio
+import logging
 import time
 from collections.abc import AsyncGenerator
 
@@ -17,6 +18,8 @@ import ollama
 from pydantic import BaseModel
 
 from src.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # Try to import LangFuse, but gracefully handle if unavailable
 # (e.g., Python 3.14 compatibility issues with Pydantic v1)
@@ -306,9 +309,9 @@ class LLMClient:
                     "input_tokens": usage,
                 },
             )
-        except Exception:
-            # Silently fail if LangFuse is not available
-            pass
+        except Exception as exc:
+            # Keep observability failures non-fatal without logging prompt content.
+            logger.warning("Langfuse trace export failed (%s)", type(exc).__name__)
 
 
 # =============================================================================

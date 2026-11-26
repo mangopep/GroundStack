@@ -1,0 +1,150 @@
+name: Container verification
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "11 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  development-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start a clean development service stack
+        env:
+          POSTGRES_PASSWORD: groundstack_ci_only_password
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD: Groundstack_CI_Only_93!
+          MINIO_ROOT_USER: groundstack_ci_only
+          MINIO_ROOT_PASSWORD: groundstack_ci_only_password
+          LANGFUSE_NEXTAUTH_SECRET: groundstack_ci_only_secret
+          LANGFUSE_SALT: groundstack_ci_only_salt
+        run: docker compose up --detach
+      - name: Verify all documented development services
+        run: |
+          wait_for() {
+            name="$1"
+            shift
+            attempt=0
+            until "$@" >/dev/null 2>&1; do
+              attempt=$((attempt + 1))
+              if [ "$attempt" -ge 60 ]; then echo "$name did not become ready" >&2; return 1; fi
+              sleep 2
+            done
+          }
+          wait_for PostgreSQL docker compose exec --no-TTY postgres pg_isready -U rag -d rag_platform
+          wait_for OpenSearch curl --fail --silent 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow'
+          wait_for Redis docker compose exec --no-TTY redis redis-cli ping
+          wait_for MinIO curl --fail --silent http://127.0.0.1:9000/minio/health/live
+          wait_for Langfuse curl --fail --silent --output /dev/null http://127.0.0.1:3000/
+      - name: Stop this runner's development stack
+        if: always()
+        run: docker compose down --remove-orphans
+
+  api-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Lint Dockerfile
+        run: docker run --rm -i hadolint/hadolint@sha256:32dac94127fd60b7b7e3fbfc65e1383b9b5e25c9bfd7b8536de7a539fe68a12d < Dockerfile
+      - name: Validate Compose files
+        run: |
+          POSTGRES_PASSWORD=compose-validation-only \
+          OPENSEARCH_INITIAL_ADMIN_PASSWORD=Compose-Validation-Only_93! \
+          MINIO_ROOT_USER=compose-validation-only \
+          MINIO_ROOT_PASSWORD=compose-validation-only \
+          LANGFUSE_NEXTAUTH_SECRET=compose-validation-only \
+          LANGFUSE_SALT=compose-validation-only \
+            docker compose config --quiet
+          docker compose -f docker-compose.integration.yml config --quiet
+      - run: node --check web/app.js
+      - name: Scan source and dependency manifests
+        run: >-
+          docker run --rm -v "$PWD:/workspace:ro"
+          aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+          fs --scanners vuln,secret,license --severity HIGH,CRITICAL --exit-code 1
+          --file-patterns 'pip:requirements-.*\.txt'
+          --no-progress /workspace
+      - name: Build API image without publishing
+        run: >-
+          docker build --pull --tag groundstack-api:ci
+          --build-arg IMAGE_VERSION=0.1.0-ci
+          --build-arg "SOURCE_REVISION=$GITHUB_SHA" .
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Verify AMD64 and ARM64 builds without publishing
+        run: |
+          docker buildx build --pull --platform linux/amd64,linux/arm64 \
+            --provenance=false --sbom=false \
+            --output type=oci,dest=/tmp/groundstack-api.oci.tar \
+            --tag groundstack-api:0.1.0-ci \
+            --build-arg IMAGE_VERSION=0.1.0-ci \
+            --build-arg SOURCE_REVISION="$GITHUB_SHA" .
+          python scripts/inspect_oci_archive.py /tmp/groundstack-api.oci.tar --version 0.1.0-ci --revision "$GITHUB_SHA"
+      - name: Verify hardened runtime, health, metadata, and shutdown
+        run: |
+          docker run --detach --name groundstack-api \
+            --read-only --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+            --cap-drop ALL --security-opt no-new-privileges --pids-limit 128 \
+            --memory 512m --cpus 1 \
+            --health-interval 2s --health-timeout 2s --health-start-period 1s --health-retries 10 \
+            --publish 127.0.0.1:18000:8000 groundstack-api:ci
+          curl --fail --silent --show-error --retry 30 --retry-connrefused --retry-all-errors --retry-delay 1 \
+            http://127.0.0.1:18000/health
+          curl --fail --silent --show-error http://127.0.0.1:18000/workspace/ >/dev/null
+          test "$(docker exec groundstack-api python -c 'import os; print(os.getuid())')" = 10001
+          docker exec groundstack-api python -c 'from pathlib import Path; import errno; p=Path("/app/write-check"); exec("try:\n p.write_text(\"x\")\nexcept OSError as e:\n assert e.errno in (errno.EROFS, errno.EACCES, errno.EPERM)\nelse:\n raise SystemExit(1)")'
+          test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' groundstack-api)" = 0.1.0-ci
+          test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' groundstack-api)" = "$GITHUB_SHA"
+          attempt=0
+          while [ "$attempt" -lt 30 ]; do
+            state=$(docker inspect --format '{{.State.Health.Status}}' groundstack-api)
+            if [ "$state" = healthy ]; then break; fi
+            sleep 1
+            attempt=$((attempt + 1))
+          done
+          test "$(docker inspect --format '{{.State.Health.Status}}' groundstack-api)" = healthy
+          docker stop --time 10 groundstack-api
+          test "$(docker inspect --format '{{.State.ExitCode}}' groundstack-api)" = 0
+      - name: Scan built image
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb
+          image --scanners vuln,misconfig,license --severity HIGH,CRITICAL --exit-code 1
+          --no-progress groundstack-api:ci
+      - name: Scan both OCI platforms and generate platform SBOMs
+        run: |
+          for architecture in amd64 arm64; do
+            platform="linux/$architecture"
+            docker run --rm -v /tmp:/work \
+              aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              --scanners vuln,misconfig,license --severity HIGH,CRITICAL --exit-code 1 --no-progress
+            docker run --rm -v /tmp:/work \
+              aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb \
+              image --input /work/groundstack-api.oci.tar --platform "$platform" \
+              --format cyclonedx --output "/work/groundstack-api-linux-$architecture.cdx.json" --no-progress
+          done
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: groundstack-api-sbom-${{ github.sha }}
+          path: /tmp/groundstack-api-linux-*.cdx.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove test container
+        if: always()
+        run: docker rm --force groundstack-api || true

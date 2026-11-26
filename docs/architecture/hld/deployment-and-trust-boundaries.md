@@ -2,7 +2,7 @@
 
 ## Current topology
 
-Docker Compose provides PostgreSQL/AGE, OpenSearch, Redis, MinIO, and Langfuse. The Python API and Ollama are host processes; Compose has no application container. Services expose host ports. OpenSearch security is disabled. The API has no auth middleware.
+Docker Compose provides PostgreSQL/AGE, OpenSearch, Redis, MinIO, Langfuse, and an optional API preview under the `api` profile. The image contains only current process-health and static-workspace routes; it does not implement ingestion/query handlers. Compose service ports bind to loopback. OpenSearch security is disabled, and the API has no auth middleware, so this remains a development topology.
 
 The static docs site will be built into a Pages artifact by GitHub Actions. GitHub Pages is currently disabled (the Pages API returned 404), so the workflow can be prepared locally but a GitHub setting change is still required before publishing.
 

@@ -2,9 +2,9 @@
 
 ## Python work
 
-- Python 3.11 or newer. The checked-in application requirements include native document/OCR and ML dependencies, so a complete install can use substantial disk and memory.
+- Python 3.11.5 or newer. The lock excludes vulnerable dependency resolutions on earlier 3.11 patch releases. The checked-in application requirements include native document/OCR and ML dependencies, so a complete install can use substantial disk and memory.
 - macOS or Linux. Windows/WSL is not covered by this repository's executed test evidence.
-- A virtual environment. The repository currently has no lockfile, so use the installed versions recorded in your own environment when reporting issues.
+- A virtual environment. `make setup` installs the checked-in hash locks for application, development, and docs tools.
 
 ## Service-backed ingestion
 

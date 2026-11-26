@@ -8,11 +8,14 @@ Purpose: Know which LLM calls are most expensive so you can optimize.
 Log summary to LangFuse daily.
 """
 
+import logging
 from datetime import date
 
 import redis
 
 from src.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 # Try to import LangFuse, but gracefully handle if unavailable
 try:
@@ -237,9 +240,9 @@ class CostTracker:
                     "by_model": stats["by_model"],
                 },
             )
-        except Exception:
-            # Silently fail if LangFuse is not available
-            pass
+        except Exception as exc:
+            # Keep observability failures non-fatal without logging user content.
+            logger.warning("Langfuse summary export failed (%s)", type(exc).__name__)
 
     def get_purpose_stats(self, purpose: str, day: date | None = None) -> dict:
         """

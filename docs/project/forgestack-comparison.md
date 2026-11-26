@@ -16,19 +16,19 @@ GitHub's Actions API showed the latest returned pull-request run batch on ForgeS
 
 | Pattern | ForgeStack evidence | GroundStack adaptation |
 |---|---|---|
-| Reproducible Python checks | Pinned requirements lock, Ruff, strict mypy, tests | A hash-locked requirements file now feeds CI. Local Ruff and source formatting pass; strict type checking remains unconfigured. The clean GitHub CI install is NOT VERIFIED yet. |
+| Reproducible Python checks | Pinned requirements lock, Ruff, strict mypy, tests | Hash-locked API and full development/ingestion environments are defined. Local Ruff, source formatting, mypy, and coverage pass. The first clean GitHub run exposed undeclared imports (`psycopg_pool`, `watchdog`); both are now declared and locked. |
 | Action supply chain | Immutable action SHAs and `persist-credentials: false` | The changed CI, security, and docs workflows now pin each action to an immutable SHA and disable checkout credentials. Existing other workflows still need review before claiming repository-wide SHA pinning. |
 | Security scanning | Scheduled CodeQL, pip-audit, Gitleaks, Trivy, Hadolint | The observed `diskcache` finding was removed with unused RAGAS; the exact locked dependency audit returns no known vulnerabilities locally. CodeQL and Gitleaks are configured but their updated remote runs are NOT VERIFIED yet. |
-| Container verification | Build without registry push, scan image, test non-root health | GroundStack has no application Dockerfile or complete service API. First define the smallest deployable app slice, then build and smoke-test that exact image before adding publishing. |
+| Container verification | Build without registry push, scan image, test non-root health | A multi-stage API image targets the existing process-health/static-workspace slice, clearly labeled as a preview. CI verifies builds, scans, health, and runtime hardening; it is not a full RAG-serving image. |
 | Release trust | Tag ancestry and separate privileged publishing | GroundStack has no release tags, production image, or protected main branch. Do not create a publishing workflow until these are addressed; any real release still needs explicit approval. |
 | Documentation | Generated-doc drift check, relative-link and Mermaid validation | Strict Zensical builds now catch broken local links and navigation. Add dedicated Mermaid syntax and source-reference drift checks as follow-up gates. |
 | Governance | Multiple branches/rulesets and named checks | Prefer a protected `main` with stable checks over copying `develop`/`staging`; exact check names and review requirements need observed successful target runs and owner configuration. |
 
 ## Target repository evidence
 
-- The target has a Python 3.11 package, FastAPI process/health routes, Docker Compose services, unit/integration tests, CI and security workflows, issue templates, a PR template, and Dependabot. It does not have an application Dockerfile, lockfile, full-stack query API, release pipeline, or measured production profile.
+- The target has a Python 3.11 package, FastAPI process/health routes, Docker Compose services, unit/integration tests, CI and security workflows, issue templates, a PR template, and Dependabot. It has an API preview Dockerfile and hash-locked dependency files, but no full-stack query API or measured production profile.
 - The user-provided Actions screen showed the dependency-audit job failing because RAGAS pulled `diskcache` 5.6.3. RAGAS was not imported by application code and its evaluation harness has no published reproducible benchmark. It was removed from both runtime and optional dependencies. The local equivalent of the runtime dependency audit now reports **No known vulnerabilities found**.
-- A strict local Zensical build reports **No issues found**. The local test suite reports **260 passed, 12 skipped** after three targeted regressions were added. The skipped MinIO tests still require a reachable service.
+- A strict local Zensical build reports **No issues found**. A four-service isolated integration run passed **40 tests**; routine unit coverage and the GitHub workflow rerun are in progress for this follow-up.
 - GitHub Pages returned 404 and the REST branch-protection endpoint returned 404. No settings were changed; repository rulesets should be checked by an owner before claiming main is protected.
 
 ## Source links

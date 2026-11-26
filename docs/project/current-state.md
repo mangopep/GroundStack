@@ -2,6 +2,8 @@
 
 **Audit snapshot:** commit `c452050e480754f4b209669e0363c9b1e86fb7fb` (`main`), 2026-11-26. The working tree was clean. Local `.env`, virtual-environment files, generated caches, and corpus documents are ignored or untracked and were left untouched; their contents were not inspected.
 
+This report records the starting-state audit, not the latest engineering foundation. Follow-up changes and current verification are tracked in [implementation status](implementation-status.md), [testing strategy](../quality/testing-strategy.md), and [CI/CD](../infrastructure/cicd.md).
+
 ## What GroundStack is
 
 GroundStack is an experimental Python document-ingestion and lexical-search repository. The implemented core extracts text from PDFs, creates structured chunks, indexes them into OpenSearch, derives a small set of structured records from tables, stores original PDFs in MinIO, writes metadata in PostgreSQL, and emits optional Langfuse events. It also has an in-memory async task queue, a filesystem watcher, and an early static workspace interface.
@@ -10,7 +12,7 @@ It is **not yet a usable question-answering RAG product**. There is no complete 
 
 ## Baseline evidence
 
-- `/.venv/bin/python -m pytest -q`: **257 passed, 12 skipped** on Python 3.11.15, pytest 9.2.0; 11 dependency deprecation/future warnings. The skipped tests are the MinIO integration module because its reachability guard did not connect using the test environment. This is not an end-to-end platform proof.
+- Starting-state baseline only: `/.venv/bin/python -m pytest -q` reported **257 passed, 12 skipped** on Python 3.11.15, pytest 9.2.0; 11 dependency deprecation/future warnings. This is not the current test result or an end-to-end platform proof.
 - The PDF robustness tests executed locally, including a 20-page synthetic PDF. Docling sometimes returned empty page text, and the parser reported `partial_fallback` after using PyMuPDF. Scanned pages without extractable text are skipped; OCR is not implemented in this path.
 - The PostgreSQL structured-store integration tests ran against the already-running local service. OpenSearch and MinIO service-backed end-to-end ingestion/query coverage was not established by this run.
 - A prior API smoke check on this same commit returned HTTP 200 for `/`, `/health`, `/workspace/`, and the workspace CSS/JS assets. `/health` confirms only that the process responds.
@@ -98,5 +100,5 @@ The current query path ends at the API boundary: there is no query route. `BM25S
 - PostgreSQL, OpenSearch, and MinIO writes can partially succeed. There is no transaction/outbox/reconciliation contract.
 - The queue is in-memory, so restart loses queued tasks and task statuses.
 - No auth, authorization, rate limiting, tenant isolation, upload boundary, or prompt-injection defense exists.
-- Compose disables OpenSearch security, exposes service ports, uses `minio/minio:latest`, and has no app service. Local settings include required credentials from `.env`; Compose cannot currently render with all required values unless those are supplied.
+- Current Compose images are digest-pinned and host service ports bind to loopback. OpenSearch security remains disabled for local development. An API preview is available under the `api` profile; it is not a production RAG service. Required credentials are supplied through environment variables or an ignored local `.env` file.
 - Query/graph/vector claims in old design docs or commit messages are not current implementation evidence.

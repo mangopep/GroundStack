@@ -29,7 +29,10 @@ jobs:
       - run: python -m pip install --require-hashes -r requirements-lock.txt
       - run: python -m pip install --no-deps -e .
       - run: pip-audit --requirement requirements-lock.txt --disable-pip
+      - run: bandit --quiet --recursive src
       - run: ruff check .
       - run: ruff format --check src scripts tests
       - run: mypy --strict src/config/settings.py src/schemas/query.py src/schemas/response.py src/schemas/knowledge.py
-      - run: pytest -q
+      - run: node --check web/app.js
+      - run: python scripts/export_openapi.py --check
+      - run: pytest -q --cov=src --cov-report=term-missing --cov-fail-under=75
