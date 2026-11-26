@@ -124,20 +124,6 @@ jobs:
     timeout-minutes: 45
     env:
       COMPOSE_PROJECT_NAME: groundstack-release-${{ github.run_id }}-${{ github.run_attempt }}
-      GROUNDSTACK_RUN_SERVICE_INTEGRATION: "1"
-      POSTGRES_HOST: 127.0.0.1
-      POSTGRES_PORT: "15432"
-      POSTGRES_USER: groundstack_test
-      POSTGRES_PASSWORD: groundstack_test_only_password
-      POSTGRES_DB: groundstack_test
-      OPENSEARCH_HOST: 127.0.0.1
-      OPENSEARCH_PORT: "19200"
-      REDIS_HOST: 127.0.0.1
-      REDIS_PORT: "16379"
-      MINIO_ENDPOINT: 127.0.0.1:19000
-      MINIO_ACCESS_KEY: groundstack_test
-      MINIO_SECRET_KEY: groundstack_test_only_password
-      MINIO_SECURE: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -187,6 +173,21 @@ jobs:
       - name: Start isolated integration services
         run: docker compose -f docker-compose.integration.yml up --detach --wait --wait-timeout 240
       - name: Wait for MinIO and run real service integrations
+        env:
+          GROUNDSTACK_RUN_SERVICE_INTEGRATION: "1"
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "15432"
+          POSTGRES_USER: groundstack_test
+          POSTGRES_PASSWORD: groundstack_test_only_password
+          POSTGRES_DB: groundstack_test
+          OPENSEARCH_HOST: 127.0.0.1
+          OPENSEARCH_PORT: "19200"
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "16379"
+          MINIO_ENDPOINT: 127.0.0.1:19000
+          MINIO_ACCESS_KEY: groundstack_test
+          MINIO_SECRET_KEY: groundstack_test_only_password
+          MINIO_SECURE: "false"
         run: |
           attempt=0
           until curl --fail --silent http://127.0.0.1:19000/minio/health/live >/dev/null; do
