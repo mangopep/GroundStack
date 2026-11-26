@@ -5,7 +5,7 @@ from pathlib import Path
 import fitz
 import pytest
 
-from ingestion.pdf_intelligence import process_pdf
+from src.ingestion.pdf_intelligence import process_pdf
 
 
 @pytest.fixture(scope="module")
@@ -109,9 +109,9 @@ def test_mixed_layout_status_tracking(mixed_layout_pdf, monkeypatch):
 
             return MockResult()
 
-    import ingestion.pdf_intelligence as pdf_mod  # noqa: F401
+    from src.ingestion import pdf_intelligence as pdf_mod
 
-    monkeypatch.setattr("ingestion.pdf_intelligence._get_converter", lambda: MockConverter())
+    monkeypatch.setattr(pdf_mod, "_get_converter", lambda: MockConverter())
 
     results = process_pdf(mixed_layout_pdf)
 
